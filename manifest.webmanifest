@@ -1,0 +1,10 @@
+{
+  "name": "Kid Tube",
+  "short_name": "Kid Tube",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fff7ed",
+  "theme_color": "#f97316",
+  "icons": [{ "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

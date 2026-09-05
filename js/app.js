@@ -1,0 +1,632 @@
+/* Kid Tube – a tiny curated YouTube library. Hash-based routing so it works
+   under a GitHub Pages sub-path. Kid mode is the default; parent mode sits
+   behind a PIN stored (hashed) in localStorage. */
+(function () {
+  'use strict';
+
+  var YT = window.YT_HELPERS;
+  var STORE = window.STORE;
+
+  var SAMPLE_URL = 'https://www.youtube.com/watch?v=jNQXAC9IVRw';
+
+  var state = STORE.load();
+  var session = { unlocked: false, filter: '', status: null, busy: false, pinError: '', lastList: '', open: {} };
+  var root = document.getElementById('app');
+
+  /* ---------------- helpers ---------------- */
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function persist() {
+    if (!STORE.save(state)) setStatus('error', 'Could not save. Is browser storage full or blocked?');
+  }
+
+  function setStatus(type, text) {
+    session.status = text ? { type: type, text: text } : null;
+    render();
+  }
+
+  function sortKey(v) {
+    return v.publishedAt || v.addedAt || '';
+  }
+
+  function visibleVideos() {
+    return state.videos.filter(function (v) { return !v.hidden; })
+      .sort(function (a, b) { return sortKey(b).localeCompare(sortKey(a)); });
+  }
+
+  function findVideo(id) {
+    for (var i = 0; i < state.videos.length; i++) if (state.videos[i].youtubeId === id) return state.videos[i];
+    return null;
+  }
+
+  function findSource(id) {
+    for (var i = 0; i < state.sources.length; i++) if (state.sources[i].id === id) return state.sources[i];
+    return null;
+  }
+
+  function channelGroups() {
+    var map = {};
+    visibleVideos().forEach(function (v) {
+      var name = v.channelName || 'Other videos';
+      if (!map[name]) map[name] = { name: name, videos: [], thumbnail: '' };
+      map[name].videos.push(v);
+    });
+    state.sources.forEach(function (s) {
+      if (s.type === 'channel' && map[s.title] && s.thumbnail) map[s.title].thumbnail = s.thumbnail;
+    });
+    return Object.keys(map).sort(function (a, b) { return a.localeCompare(b); }).map(function (k) { return map[k]; });
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  /* ---------------- routing ---------------- */
+
+  function route() {
+    var hash = location.hash.replace(/^#\/?/, '');
+    var parts = hash.split('/').map(function (p) { try { return decodeURIComponent(p); } catch (e) { return p; } });
+    return { name: parts[0] || 'videos', arg: parts.slice(1).join('/') };
+  }
+
+  function go(hash) {
+    location.hash = hash;
+  }
+
+  /* ---------------- kid mode views ---------------- */
+
+  function kidHeader(active) {
+    var name = state.settings.childName || 'My Videos';
+    return '' +
+      '<header class="topbar">' +
+        '<a class="brand" href="#/videos"><span class="brand-icon" aria-hidden="true">▶</span>' + esc(name) + '</a>' +
+        '<nav class="tabs" aria-label="Sections">' +
+          '<a href="#/videos" class="' + (active === 'videos' ? 'active' : '') + '">Videos</a>' +
+          '<a href="#/channels" class="' + (active === 'channels' ? 'active' : '') + '">Channels</a>' +
+        '</nav>' +
+        '<a class="parent-link" href="#/parent" aria-label="Parent mode"><span aria-hidden="true">🔒</span><span class="parent-link-text"> Parent</span></a>' +
+      '</header>';
+  }
+
+  function videoCard(v) {
+    return '' +
+      '<a class="card" href="#/watch/' + esc(v.youtubeId) + '">' +
+        '<div class="thumb"><img src="' + esc(v.thumbnail || YT.thumbnailUrl(v.youtubeId)) + '" alt="" loading="lazy"></div>' +
+        '<div class="card-body">' +
+          '<div class="card-title">' + esc(v.title) + '</div>' +
+          '<div class="card-channel">' + esc(v.channelName) + '</div>' +
+        '</div>' +
+      '</a>';
+  }
+
+  function emptyLibrary() {
+    return '' +
+      '<div class="empty">' +
+        '<div class="empty-icon" aria-hidden="true">📺</div>' +
+        '<h2>No videos yet</h2>' +
+        '<p>Ask a grown-up to add some videos in Parent mode.</p>' +
+        '<a class="btn btn-primary" href="#/parent">Open Parent mode</a>' +
+      '</div>';
+  }
+
+  function viewVideos(filterChannel) {
+    var videos = visibleVideos();
+    if (filterChannel) videos = videos.filter(function (v) { return (v.channelName || 'Other videos') === filterChannel; });
+    var q = session.filter.trim().toLowerCase();
+    var shown = q ? videos.filter(function (v) {
+      return (v.title + ' ' + v.channelName).toLowerCase().indexOf(q) !== -1;
+    }) : videos;
+
+    var html = kidHeader(filterChannel ? 'channels' : 'videos') + '<main class="page">';
+    if (!state.videos.length) {
+      html += emptyLibrary();
+    } else {
+      if (filterChannel) {
+        html += '<div class="section-head"><a class="btn btn-ghost" href="#/channels">‹ All channels</a><h1 class="section-title">' + esc(filterChannel) + '</h1></div>';
+      }
+      if (videos.length > 4) {
+        html += '<div class="filter-row">' +
+          '<input class="filter" type="search" placeholder="Find in my videos…" value="' + esc(session.filter) + '" data-role="filter" aria-label="Find in my videos" autocomplete="off">' +
+        '</div>';
+      }
+      if (!shown.length) {
+        html += '<p class="muted center">No videos match “' + esc(session.filter) + '”.</p>';
+      } else {
+        html += '<div class="grid">' + shown.map(videoCard).join('') + '</div>';
+      }
+    }
+    return html + '</main>';
+  }
+
+  function viewChannels() {
+    var groups = channelGroups();
+    var html = kidHeader('channels') + '<main class="page">';
+    if (!state.videos.length) {
+      html += emptyLibrary();
+    } else {
+      html += '<div class="grid channels-grid">' + groups.map(function (g) {
+        var thumb = g.thumbnail || (g.videos[0] && (g.videos[0].thumbnail || YT.thumbnailUrl(g.videos[0].youtubeId)));
+        return '<a class="card channel-card" href="#/channel/' + encodeURIComponent(g.name) + '">' +
+          '<div class="channel-avatar"><img src="' + esc(thumb) + '" alt="" loading="lazy"></div>' +
+          '<div class="card-body"><div class="card-title">' + esc(g.name) + '</div>' +
+          '<div class="card-channel">' + g.videos.length + (g.videos.length === 1 ? ' video' : ' videos') + '</div></div>' +
+        '</a>';
+      }).join('') + '</div>';
+    }
+    return html + '</main>';
+  }
+
+  function viewWatch(id) {
+    var v = findVideo(id);
+    if (!v || v.hidden) {
+      return kidHeader('videos') + '<main class="page"><div class="empty"><h2>That video isn’t in the library</h2><a class="btn btn-primary" href="#/videos">Back to videos</a></div></main>';
+    }
+    var more = visibleVideos().filter(function (o) { return o.youtubeId !== v.youtubeId && o.channelName === v.channelName; }).slice(0, 8);
+    return '' +
+      '<div class="watch">' +
+        '<div class="watch-bar">' +
+          '<button class="btn btn-ghost btn-back" data-action="back">‹ Back</button>' +
+          '<div class="watch-title-sm">' + esc(v.title) + '</div>' +
+        '</div>' +
+        '<div class="player"><iframe src="' + esc(YT.embedUrl(v.youtubeId)) + '" title="' + esc(v.title) + '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>' +
+        '<div class="watch-info"><h1>' + esc(v.title) + '</h1><div class="muted">' + esc(v.channelName) + '</div></div>' +
+        (more.length ? '<section class="more"><h2>More from ' + esc(v.channelName) + '</h2><div class="row">' + more.map(videoCard).join('') + '</div></section>' : '') +
+      '</div>';
+  }
+
+  /* ---------------- parent mode views ---------------- */
+
+  function viewParent() {
+    var html;
+    if (!state.settings.parentPinHash) html = viewPinSetup();
+    else if (!session.unlocked) html = viewPinEntry();
+    else html = viewDashboard();
+    return html;
+  }
+
+  function pinShell(inner) {
+    return '<main class="page narrow"><div class="pin-box">' + inner + '</div>' +
+      '<p class="center"><a class="btn btn-ghost" href="#/videos">‹ Back to videos</a></p></main>';
+  }
+
+  function viewPinSetup() {
+    return pinShell(
+      '<h1>Create a parent PIN</h1>' +
+      '<p class="muted">Pick 4 or more digits. It only stops accidental taps, so keep it simple. If you forget it, clear this site’s data in your browser to start over.</p>' +
+      '<form data-form="pin-setup">' +
+        '<label>PIN<input type="password" inputmode="numeric" pattern="[0-9]*" name="pin" minlength="4" required autocomplete="new-password" autofocus></label>' +
+        '<label>Confirm PIN<input type="password" inputmode="numeric" pattern="[0-9]*" name="confirm" minlength="4" required autocomplete="new-password"></label>' +
+        (session.pinError ? '<p class="error">' + esc(session.pinError) + '</p>' : '') +
+        '<button class="btn btn-primary btn-block" type="submit">Save PIN and continue</button>' +
+      '</form>'
+    );
+  }
+
+  function viewPinEntry() {
+    return pinShell(
+      '<h1>Parent mode</h1>' +
+      '<p class="muted">Enter your PIN to manage the library.</p>' +
+      '<form data-form="pin-entry">' +
+        '<label>PIN<input type="password" inputmode="numeric" pattern="[0-9]*" name="pin" required autocomplete="current-password" autofocus></label>' +
+        (session.pinError ? '<p class="error">' + esc(session.pinError) + '</p>' : '') +
+        '<button class="btn btn-primary btn-block" type="submit">Unlock</button>' +
+      '</form>'
+    );
+  }
+
+  function sourceRow(s) {
+    var vids = state.videos.filter(function (v) { return v.sourceId === s.id; });
+    var hiddenCount = vids.filter(function (v) { return v.hidden; }).length;
+    var thumb = s.thumbnail || (s.type === 'video' ? YT.thumbnailUrl(s.youtubeId) : '');
+    var html = '<li class="source">' +
+      '<div class="source-main">' +
+        '<div class="source-thumb ' + (s.type === 'channel' ? 'round' : '') + '">' + (thumb ? '<img src="' + esc(thumb) + '" alt="">' : '') + '</div>' +
+        '<div class="source-text">' +
+          '<div class="source-title">' + esc(s.title) + ' <span class="badge">' + (s.type === 'channel' ? 'Channel' : 'Video') + '</span></div>' +
+          '<div class="muted small">' + (s.type === 'channel'
+            ? vids.length + ' videos' + (hiddenCount ? ' · ' + hiddenCount + ' hidden' : '') + (s.lastSyncedAt ? ' · updated ' + formatDate(s.lastSyncedAt) : '')
+            : esc(s.channelName) + ' · added ' + formatDate(s.addedAt)) + '</div>' +
+        '</div>' +
+        '<div class="source-actions">' +
+          (s.type === 'channel' ? '<button class="btn btn-small" data-action="refresh-source" data-id="' + esc(s.id) + '"' + (session.busy ? ' disabled' : '') + '>Refresh</button>' : '') +
+          '<button class="btn btn-small btn-danger" data-action="remove-source" data-id="' + esc(s.id) + '">Remove</button>' +
+        '</div>' +
+      '</div>';
+    if (s.type === 'channel' && vids.length) {
+      html += '<details class="source-videos" data-details="' + esc(s.id) + '"' + (session.open[s.id] ? ' open' : '') + '><summary>Show videos (tap a video to hide or show it)</summary><ul>' +
+        vids.sort(function (a, b) { return sortKey(b).localeCompare(sortKey(a)); }).map(function (v) {
+          return '<li class="' + (v.hidden ? 'is-hidden' : '') + '">' +
+            '<button class="video-toggle" data-action="toggle-hidden" data-video="' + esc(v.youtubeId) + '" aria-pressed="' + (v.hidden ? 'true' : 'false') + '">' +
+              '<img src="' + esc(YT.thumbnailUrl(v.youtubeId, 'default')) + '" alt="">' +
+              '<span class="video-toggle-title">' + esc(v.title) + '</span>' +
+              '<span class="badge">' + (v.hidden ? 'Hidden' : 'Shown') + '</span>' +
+            '</button></li>';
+        }).join('') + '</ul></details>';
+    }
+    return html + '</li>';
+  }
+
+  function viewDashboard() {
+    var status = session.status;
+    var channelCount = state.sources.filter(function (s) { return s.type === 'channel'; }).length;
+    return '' +
+      '<header class="topbar parent-bar">' +
+        '<div class="brand"><span class="brand-icon" aria-hidden="true">🔒</span>Parent mode</div>' +
+        '<button class="btn btn-primary" data-action="lock">Done · Kid mode</button>' +
+      '</header>' +
+      '<main class="page narrow">' +
+
+      '<section class="panel">' +
+        '<h2>Add a video or channel</h2>' +
+        '<form data-form="add" class="add-form">' +
+          '<input type="text" name="url" placeholder="Paste a YouTube link…" required autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="url"' + (session.busy ? ' disabled' : '') + '>' +
+          '<button class="btn btn-primary" type="submit"' + (session.busy ? ' disabled' : '') + '>' + (session.busy ? 'Working…' : 'Add') + '</button>' +
+        '</form>' +
+        (status ? '<p class="status status-' + status.type + '" role="status">' + esc(status.text) + '</p>' : '') +
+        '<p class="muted small">Works with youtube.com/watch, youtu.be, Shorts and embed links. ' +
+          (state.settings.apiKey ? 'Channel links (youtube.com/@name) add that channel’s latest uploads.' : 'To add whole channels, enter a YouTube API key in Settings below.') +
+          ' <a href="#" data-action="use-sample">Try a sample video</a></p>' +
+      '</section>' +
+
+      '<section class="panel">' +
+        '<div class="panel-head"><h2>Approved library</h2>' +
+          (channelCount ? '<button class="btn btn-small" data-action="refresh-all"' + (session.busy ? ' disabled' : '') + '>Refresh all channels</button>' : '') +
+        '</div>' +
+        (state.sources.length
+          ? '<ul class="sources">' + state.sources.slice().sort(function (a, b) { return (b.addedAt || '').localeCompare(a.addedAt || ''); }).map(sourceRow).join('') + '</ul>'
+          : '<p class="muted">Nothing approved yet. Paste a link above to get started.</p>') +
+      '</section>' +
+
+      '<section class="panel">' +
+        '<h2>Settings</h2>' +
+        '<form data-form="settings">' +
+          '<label>Library name (shown to your child)<input type="text" name="childName" value="' + esc(state.settings.childName) + '" maxlength="40"></label>' +
+          '<label>YouTube Data API key (optional, needed for channels)<input type="password" name="apiKey" value="' + esc(state.settings.apiKey) + '" autocomplete="off" placeholder="AIza…"></label>' +
+          '<p class="muted small">Create a free key in Google Cloud Console (YouTube Data API v3). It is stored only in this browser. See the README for steps.</p>' +
+          '<button class="btn" type="submit">Save settings</button>' +
+        '</form>' +
+        '<details class="subpanel" data-details="change-pin"' + (session.open['change-pin'] ? ' open' : '') + '><summary>Change PIN</summary>' +
+          '<form data-form="change-pin">' +
+            '<label>New PIN<input type="password" inputmode="numeric" pattern="[0-9]*" name="pin" minlength="4" required autocomplete="new-password"></label>' +
+            '<label>Confirm new PIN<input type="password" inputmode="numeric" pattern="[0-9]*" name="confirm" minlength="4" required autocomplete="new-password"></label>' +
+            '<button class="btn" type="submit">Update PIN</button>' +
+          '</form>' +
+        '</details>' +
+      '</section>' +
+
+      '<section class="panel">' +
+        '<h2>Backup &amp; move to another device</h2>' +
+        '<p class="muted small">Export your library as a JSON file, then import it on another phone, tablet or computer. Your PIN is not included.</p>' +
+        '<div class="btn-row">' +
+          '<button class="btn" data-action="export">Download backup</button>' +
+          '<button class="btn" data-action="copy-export">Copy to clipboard</button>' +
+          '<label class="btn file-btn">Import backup<input type="file" accept="application/json,.json" data-role="import" hidden></label>' +
+        '</div>' +
+      '</section>' +
+
+      '<section class="panel danger-zone">' +
+        '<h2>Start over</h2>' +
+        '<button class="btn btn-danger" data-action="reset">Delete all videos, settings and PIN</button>' +
+      '</section>' +
+      '</main>';
+  }
+
+  /* ---------------- render ---------------- */
+
+  function render() {
+    var r = route();
+    var html;
+    var mode = 'kid';
+    switch (r.name) {
+      case 'watch': html = viewWatch(r.arg); mode = 'watch'; break;
+      case 'channels': html = viewChannels(); break;
+      case 'channel': html = viewVideos(r.arg); break;
+      case 'parent': html = viewParent(); mode = 'parent'; break;
+      default: html = viewVideos(null);
+    }
+    document.body.dataset.mode = mode;
+    var active = document.activeElement;
+    var keepFocus = active && active.dataset && active.dataset.role === 'filter';
+    var selStart = keepFocus ? active.selectionStart : 0;
+    root.innerHTML = html;
+    if (keepFocus) {
+      var f = root.querySelector('[data-role="filter"]');
+      if (f) { f.focus(); try { f.setSelectionRange(selStart, selStart); } catch (e) { /* ignore */ } }
+    }
+    var auto = root.querySelector('[autofocus]');
+    if (auto && !keepFocus && mode === 'parent') auto.focus();
+  }
+
+  /* ---------------- actions ---------------- */
+
+  function addFromUrl(url) {
+    var ref = YT.parseYouTubeUrl(url);
+    if (!ref) {
+      setStatus('error', 'That doesn’t look like a YouTube video or channel link.');
+      return;
+    }
+    if (ref.type === 'video') return addVideo(ref.id);
+    return addChannel(ref);
+  }
+
+  function addVideo(videoId) {
+    if (findVideo(videoId)) {
+      setStatus('info', 'That video is already in the library.');
+      return;
+    }
+    session.busy = true;
+    setStatus('info', 'Looking up video details…');
+    var key = state.settings.apiKey;
+    var lookup = key
+      ? YT.fetchVideoDetails(key, videoId).catch(function () { return null; })
+      : Promise.resolve(null);
+    return lookup.then(function (details) {
+      return details || YT.fetchVideoMetadata(videoId);
+    }).then(function (meta) {
+      var now = new Date().toISOString();
+      var source = {
+        id: STORE.uid(),
+        type: 'video',
+        youtubeId: videoId,
+        title: meta ? meta.title : 'YouTube video ' + videoId,
+        channelName: meta ? meta.channelName : '',
+        addedAt: now
+      };
+      state.sources.push(source);
+      state.videos.push({
+        youtubeId: videoId,
+        title: source.title,
+        channelName: source.channelName,
+        thumbnail: YT.thumbnailUrl(videoId),
+        sourceId: source.id,
+        publishedAt: (meta && meta.publishedAt) || '',
+        addedAt: now
+      });
+      persist();
+      session.busy = false;
+      setStatus(meta ? 'ok' : 'warn', meta
+        ? 'Added “' + source.title + '”.'
+        : 'Added the video, but its title couldn’t be fetched. It will still play.');
+    }).catch(function (err) {
+      session.busy = false;
+      setStatus('error', 'Could not add that video: ' + err.message);
+    });
+  }
+
+  function addChannel(ref) {
+    var key = state.settings.apiKey;
+    if (!key) {
+      setStatus('error', 'Adding a whole channel needs a YouTube Data API key. Add one in Settings below, or paste individual video links instead.');
+      return;
+    }
+    session.busy = true;
+    setStatus('info', 'Looking up channel…');
+    return YT.resolveChannel(key, ref).then(function (ch) {
+      var dup = state.sources.filter(function (s) { return s.type === 'channel' && s.youtubeId === ch.channelId; })[0];
+      if (dup) throw new Error('“' + dup.title + '” is already in the library.');
+      var source = {
+        id: STORE.uid(),
+        type: 'channel',
+        youtubeId: ch.channelId,
+        uploadsPlaylistId: ch.uploadsPlaylistId,
+        title: ch.title,
+        channelName: ch.title,
+        thumbnail: ch.thumbnail,
+        addedAt: new Date().toISOString(),
+        lastSyncedAt: null
+      };
+      state.sources.push(source);
+      return syncChannel(source).then(function (count) {
+        persist();
+        session.busy = false;
+        setStatus('ok', 'Added channel “' + ch.title + '” with ' + count + ' videos.');
+      });
+    }).catch(function (err) {
+      session.busy = false;
+      setStatus('error', err.message);
+    });
+  }
+
+  /* Pull the latest uploads for a channel source, keeping hidden flags. */
+  function syncChannel(source) {
+    return YT.fetchChannelUploads(state.settings.apiKey, source.uploadsPlaylistId, 50).then(function (uploads) {
+      var existing = {};
+      state.videos.forEach(function (v) { existing[v.youtubeId] = v; });
+      var added = 0;
+      uploads.forEach(function (u) {
+        var cur = existing[u.youtubeId];
+        if (cur) {
+          if (cur.sourceId === source.id) { cur.title = u.title; cur.publishedAt = u.publishedAt || cur.publishedAt; }
+          return; // already approved (maybe individually) – leave it alone
+        }
+        state.videos.push({
+          youtubeId: u.youtubeId,
+          title: u.title,
+          channelName: u.channelName || source.title,
+          thumbnail: u.thumbnail,
+          sourceId: source.id,
+          publishedAt: u.publishedAt || '',
+          addedAt: new Date().toISOString()
+        });
+        added++;
+      });
+      source.lastSyncedAt = new Date().toISOString();
+      return added;
+    });
+  }
+
+  function refreshSources(sources) {
+    session.busy = true;
+    setStatus('info', 'Checking for new videos…');
+    var total = 0;
+    var chain = Promise.resolve();
+    sources.forEach(function (s) {
+      chain = chain.then(function () { return syncChannel(s).then(function (n) { total += n; }); });
+    });
+    return chain.then(function () {
+      persist();
+      session.busy = false;
+      setStatus('ok', total ? 'Found ' + total + ' new ' + (total === 1 ? 'video' : 'videos') + '.' : 'No new videos.');
+    }).catch(function (err) {
+      persist();
+      session.busy = false;
+      setStatus('error', err.message);
+    });
+  }
+
+  function removeSource(id) {
+    var s = findSource(id);
+    if (!s) return;
+    if (!confirm('Remove “' + s.title + '” from the library?')) return;
+    state.sources = state.sources.filter(function (x) { return x.id !== id; });
+    state.videos = state.videos.filter(function (v) { return v.sourceId !== id; });
+    persist();
+    setStatus('ok', 'Removed “' + s.title + '”.');
+  }
+
+  function download(filename, text) {
+    var blob = new Blob([text], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function importFile(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var added = STORE.importJson(state, reader.result);
+        persist();
+        setStatus('ok', 'Imported ' + added + ' new ' + (added === 1 ? 'item' : 'items') + '.');
+      } catch (err) {
+        setStatus('error', 'Import failed: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function setPin(form, onDone) {
+    var pin = form.pin.value.trim();
+    var confirmPin = form.confirm.value.trim();
+    if (!/^\d{4,}$/.test(pin)) { session.pinError = 'Use at least 4 digits.'; render(); return; }
+    if (pin !== confirmPin) { session.pinError = 'The PINs don’t match.'; render(); return; }
+    STORE.hashPin(pin).then(function (hash) {
+      state.settings.parentPinHash = hash;
+      session.pinError = '';
+      persist();
+      onDone();
+    });
+  }
+
+  /* ---------------- events ---------------- */
+
+  root.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-action]');
+    if (!el) return;
+    var action = el.dataset.action;
+    if (el.tagName === 'A') e.preventDefault();
+    switch (action) {
+      case 'back': go(session.lastList || '#/videos'); break;
+      case 'lock':
+        session.unlocked = false; session.status = null; session.filter = '';
+        go('#/videos');
+        break;
+      case 'remove-source': removeSource(el.dataset.id); break;
+      case 'refresh-source': refreshSources([findSource(el.dataset.id)].filter(Boolean)); break;
+      case 'refresh-all': refreshSources(state.sources.filter(function (s) { return s.type === 'channel'; })); break;
+      case 'toggle-hidden': {
+        var v = findVideo(el.dataset.video);
+        if (v) { v.hidden = !v.hidden; persist(); render(); }
+        break;
+      }
+      case 'use-sample': {
+        var input = root.querySelector('[data-form="add"] input[name="url"]');
+        if (input) { input.value = SAMPLE_URL; input.focus(); }
+        break;
+      }
+      case 'export': download('kidtube-backup-' + new Date().toISOString().slice(0, 10) + '.json', STORE.exportJson(state)); break;
+      case 'copy-export':
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(STORE.exportJson(state)).then(function () { setStatus('ok', 'Backup copied to clipboard.'); },
+            function () { setStatus('error', 'Clipboard not available. Use Download instead.'); });
+        } else setStatus('error', 'Clipboard not available. Use Download instead.');
+        break;
+      case 'reset':
+        if (confirm('Delete everything, including the PIN? This cannot be undone.')) {
+          STORE.clear();
+          state = STORE.load();
+          session.unlocked = false; session.status = null;
+          go('#/videos'); render();
+        }
+        break;
+    }
+  });
+
+  root.addEventListener('submit', function (e) {
+    var form = e.target.closest('[data-form]');
+    if (!form) return;
+    e.preventDefault();
+    switch (form.dataset.form) {
+      case 'pin-setup':
+        setPin(form, function () { session.unlocked = true; render(); });
+        break;
+      case 'pin-entry':
+        STORE.hashPin(form.pin.value.trim()).then(function (hash) {
+          if (hash === state.settings.parentPinHash) { session.unlocked = true; session.pinError = ''; }
+          else session.pinError = 'Wrong PIN, try again.';
+          render();
+        });
+        break;
+      case 'change-pin':
+        setPin(form, function () { setStatus('ok', 'PIN updated.'); });
+        break;
+      case 'add':
+        if (session.busy) return;
+        addFromUrl(form.url.value);
+        break;
+      case 'settings':
+        state.settings.childName = form.childName.value.trim() || 'My Videos';
+        state.settings.apiKey = form.apiKey.value.trim();
+        persist();
+        setStatus('ok', 'Settings saved.');
+        break;
+    }
+  });
+
+  root.addEventListener('input', function (e) {
+    if (e.target.dataset.role === 'filter') {
+      session.filter = e.target.value;
+      render();
+    }
+  });
+
+  root.addEventListener('toggle', function (e) {
+    if (e.target.dataset && e.target.dataset.details) session.open[e.target.dataset.details] = e.target.open;
+  }, true);
+
+  root.addEventListener('change', function (e) {
+    if (e.target.dataset.role === 'import' && e.target.files[0]) importFile(e.target.files[0]);
+  });
+
+  window.addEventListener('hashchange', function () {
+    session.pinError = '';
+    var name = route().name;
+    if (name === 'videos' || name === 'channels' || name === 'channel') session.lastList = location.hash;
+    if (route().name !== 'parent') session.status = null;
+    if (route().name !== 'videos' && route().name !== 'channel') session.filter = '';
+    render();
+    window.scrollTo(0, 0);
+  });
+
+  // Always start in kid mode: a reload never lands in an unlocked parent view.
+  render();
+})();

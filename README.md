@@ -42,6 +42,16 @@ Videos play in the official YouTube embed through the IFrame Player API:
 YouTube's own player chrome is otherwise left alone, and the pause overlay
 still shows same-channel suggestions.
 
+### Ads
+
+Embeds show the same ads as youtube.com. Tapping an ad cannot open the
+advertiser's site (see the sandbox above), but the ad still plays. If you have
+YouTube Premium (or Premium Lite), sign in to youtube.com in the same browser
+and turn on **Use my YouTube sign-in** in Parent mode → Settings. The player
+then loads from youtube.com instead of the privacy-enhanced domain, so your
+Premium status applies and videos play without ads. Leave it off to keep the
+cookie-free embed.
+
 ### Supported links
 
 * Videos: `youtube.com/watch?v=…`, `youtu.be/…`, `youtube.com/shorts/…`,

@@ -241,7 +241,10 @@
     }
     var iframe = document.createElement('iframe');
     iframe.id = 'yt-player';
-    iframe.src = 'https://www.youtube-nocookie.com/embed/' + v.youtubeId + '?' + params.join('&');
+    // youtube.com honours the parent's YouTube sign-in (Premium = no ads);
+    // the privacy-enhanced domain ignores it but sets no cookies.
+    var host = state.settings.useYouTubeSignIn ? 'https://www.youtube.com' : 'https://www.youtube-nocookie.com';
+    iframe.src = host + '/embed/' + v.youtubeId + '?' + params.join('&');
     iframe.title = v.title;
     iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen');
     iframe.setAttribute('allowfullscreen', '');
@@ -421,6 +424,7 @@
           '<label>YouTube Data API key (optional, needed for channels)<input type="password" name="apiKey" value="' + esc(state.settings.apiKey) + '" autocomplete="off" placeholder="AIza…"></label>' +
           '<p class="muted small">Create a free key in Google Cloud Console (YouTube Data API v3). It is stored only in this browser. See the README for steps.</p>' +
           '<label class="check"><input type="checkbox" name="blockYouTubeLinks"' + (state.settings.blockYouTubeLinks !== false ? ' checked' : '') + '> Block links to youtube.com inside the player <span class="muted small">(recommended; turn off if videos show as unavailable)</span></label>' +
+          '<label class="check"><input type="checkbox" name="useYouTubeSignIn"' + (state.settings.useYouTubeSignIn ? ' checked' : '') + '> Use my YouTube sign-in <span class="muted small">(with YouTube Premium, videos play without ads; sign in to youtube.com in this browser first)</span></label>' +
           '<button class="btn" type="submit">Save settings</button>' +
         '</form>' +
         '<details class="subpanel" data-details="change-pin"' + (session.open['change-pin'] ? ' open' : '') + '><summary>Change PIN</summary>' +
@@ -734,6 +738,7 @@
         state.settings.childName = form.childName.value.trim() || 'My Videos';
         state.settings.apiKey = form.apiKey.value.trim();
         state.settings.blockYouTubeLinks = form.blockYouTubeLinks.checked;
+        state.settings.useYouTubeSignIn = form.useYouTubeSignIn.checked;
         persist();
         setStatus('ok', 'Settings saved.');
         break;

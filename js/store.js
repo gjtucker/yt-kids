@@ -7,7 +7,7 @@
   function defaults() {
     return {
       version: 1,
-      settings: { parentPinHash: null, childName: 'My Videos', apiKey: '', blockYouTubeLinks: true },
+      settings: { parentPinHash: null, childName: 'My Videos', apiKey: '', blockYouTubeLinks: true, useYouTubeSignIn: false },
       sources: [],
       videos: []
     };
@@ -73,7 +73,7 @@
       app: 'kidtube',
       version: 1,
       exportedAt: new Date().toISOString(),
-      settings: { childName: state.settings.childName, apiKey: state.settings.apiKey, blockYouTubeLinks: state.settings.blockYouTubeLinks },
+      settings: { childName: state.settings.childName, apiKey: state.settings.apiKey, blockYouTubeLinks: state.settings.blockYouTubeLinks, useYouTubeSignIn: state.settings.useYouTubeSignIn },
       sources: state.sources,
       videos: state.videos
     }, null, 2);
@@ -103,6 +103,7 @@
       if (data.settings.childName) state.settings.childName = data.settings.childName;
       if (data.settings.apiKey && !state.settings.apiKey) state.settings.apiKey = data.settings.apiKey;
       if (typeof data.settings.blockYouTubeLinks === 'boolean') state.settings.blockYouTubeLinks = data.settings.blockYouTubeLinks;
+      if (typeof data.settings.useYouTubeSignIn === 'boolean') state.settings.useYouTubeSignIn = data.settings.useYouTubeSignIn;
     }
     return added;
   }

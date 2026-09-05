@@ -34,9 +34,13 @@ Videos play in the official YouTube embed through the IFrame Player API:
   suggestions YouTube shows while paused), playback is stopped and the child is
   sent back to the library.
 * If the player API cannot load, a plain embed is used instead.
+* The player iframe is sandboxed so it cannot open new tabs or navigate the
+  page. The title, logo and "Watch on YouTube" links are still there, they just
+  do nothing when tapped. If a video ever shows as unavailable, turn off
+  "Block links to youtube.com inside the player" in Parent mode → Settings.
 
-YouTube's own player chrome is left alone: the title and logo still link to
-youtube.com, and the pause overlay still shows same-channel suggestions.
+YouTube's own player chrome is otherwise left alone, and the pause overlay
+still shows same-channel suggestions.
 
 ### Supported links
 

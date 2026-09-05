@@ -229,6 +229,29 @@
     }
   }
 
+  /* Build the player iframe ourselves so we control its attributes. Without
+     allow-popups / allow-top-navigation in `sandbox`, the links inside the
+     player (title, logo, "Watch on YouTube") cannot open youtube.com. */
+  function buildPlayerIframe(v, queue, withApi) {
+    var params = ['rel=0', 'playsinline=1', 'iv_load_policy=3'];
+    if (queue.length) params.push('playlist=' + queue.join(','));
+    if (withApi) {
+      params.push('enablejsapi=1');
+      if (/^https?:$/.test(location.protocol)) params.push('origin=' + encodeURIComponent(location.origin));
+    }
+    var iframe = document.createElement('iframe');
+    iframe.id = 'yt-player';
+    iframe.src = 'https://www.youtube-nocookie.com/embed/' + v.youtubeId + '?' + params.join('&');
+    iframe.title = v.title;
+    iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen');
+    iframe.setAttribute('allowfullscreen', '');
+    iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+    if (state.settings.blockYouTubeLinks !== false) {
+      iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');
+    }
+    return iframe;
+  }
+
   function mountPlayer(v) {
     var token = ++mountToken;
     var queue = upNextFor(v).map(function (o) { return o.youtubeId; });
@@ -236,22 +259,15 @@
     session.queue = queue;
 
     loadPlayerApi().then(function () {
-      if (token !== mountToken || !root.querySelector('#yt-player')) return; // navigated away
-      var vars = { rel: 0, playsinline: 1, iv_load_policy: 3 };
-      if (queue.length) vars.playlist = queue.join(',');
-      if (/^https?:$/.test(location.protocol)) vars.origin = location.origin;
-      player = new window.YT.Player('yt-player', {
-        host: 'https://www.youtube-nocookie.com',
-        videoId: v.youtubeId,
-        playerVars: vars,
-        events: { onStateChange: onPlayerStateChange }
-      });
-    }).catch(function () {
-      // No API (offline, blocked): fall back to a plain embed.
       var host = root.querySelector('#yt-player');
-      if (token === mountToken && host) {
-        host.outerHTML = '<iframe src="' + esc(YTH.embedUrl(v.youtubeId)) + '" title="' + esc(v.title) + '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>';
-      }
+      if (token !== mountToken || !host) return; // navigated away
+      var iframe = buildPlayerIframe(v, queue, true);
+      host.replaceWith(iframe);
+      player = new window.YT.Player(iframe, { events: { onStateChange: onPlayerStateChange } });
+    }).catch(function () {
+      // No API (offline, blocked): plain embed without playlist/end-screen handling.
+      var host = root.querySelector('#yt-player');
+      if (token === mountToken && host) host.replaceWith(buildPlayerIframe(v, queue, false));
     });
   }
 
@@ -404,6 +420,7 @@
           '<label>Library name (shown to your child)<input type="text" name="childName" value="' + esc(state.settings.childName) + '" maxlength="40"></label>' +
           '<label>YouTube Data API key (optional, needed for channels)<input type="password" name="apiKey" value="' + esc(state.settings.apiKey) + '" autocomplete="off" placeholder="AIza…"></label>' +
           '<p class="muted small">Create a free key in Google Cloud Console (YouTube Data API v3). It is stored only in this browser. See the README for steps.</p>' +
+          '<label class="check"><input type="checkbox" name="blockYouTubeLinks"' + (state.settings.blockYouTubeLinks !== false ? ' checked' : '') + '> Block links to youtube.com inside the player <span class="muted small">(recommended; turn off if videos show as unavailable)</span></label>' +
           '<button class="btn" type="submit">Save settings</button>' +
         '</form>' +
         '<details class="subpanel" data-details="change-pin"' + (session.open['change-pin'] ? ' open' : '') + '><summary>Change PIN</summary>' +
@@ -716,6 +733,7 @@
       case 'settings':
         state.settings.childName = form.childName.value.trim() || 'My Videos';
         state.settings.apiKey = form.apiKey.value.trim();
+        state.settings.blockYouTubeLinks = form.blockYouTubeLinks.checked;
         persist();
         setStatus('ok', 'Settings saved.');
         break;

@@ -231,3 +231,5 @@ input:focus { outline: none; border-color: var(--accent); }
 .end-screen .btn-row { justify-content: center; }
 .end-screen .btn { border-color: #444; background: #2a2a2a; color: #fff; }
 .end-screen .btn-primary { background: var(--accent); border-color: var(--accent); }
+label.check { display: flex; align-items: flex-start; gap: 10px; font-weight: 600; margin: 4px 0 16px; }
+label.check input { margin: 4px 0 0; width: 22px; height: 22px; flex-shrink: 0; }

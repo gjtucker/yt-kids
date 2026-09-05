@@ -21,6 +21,23 @@ No search box, no Shorts, no comments, no trending feed.
 The PIN only prevents accidental taps; it is not real security. A reload
 always starts in kid mode.
 
+### Playback
+
+Videos play in the official YouTube embed through the IFrame Player API:
+
+* The other approved videos (same channel first) are queued as a playlist, so
+  when one video ends the next approved one plays instead of YouTube's
+  suggestions.
+* When the last queued video ends, the app replaces YouTube's end screen with
+  its own "All done" screen offering *Watch again* and *Back to videos*.
+* If a video that is not in the library starts (for example from the
+  suggestions YouTube shows while paused), playback is stopped and the child is
+  sent back to the library.
+* If the player API cannot load, a plain embed is used instead.
+
+YouTube's own player chrome is left alone: the title and logo still link to
+youtube.com, and the pause overlay still shows same-channel suggestions.
+
 ### Supported links
 
 * Videos: `youtube.com/watch?v=…`, `youtu.be/…`, `youtube.com/shorts/…`,

@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  var YT = window.YT_HELPERS;
+  var YTH = window.YT_HELPERS; // window.YT is reserved for the YouTube IFrame API
   var STORE = window.STORE;
 
   var SAMPLE_URL = 'https://www.youtube.com/watch?v=jNQXAC9IVRw';
@@ -98,7 +98,7 @@
   function videoCard(v) {
     return '' +
       '<a class="card" href="#/watch/' + esc(v.youtubeId) + '">' +
-        '<div class="thumb"><img src="' + esc(v.thumbnail || YT.thumbnailUrl(v.youtubeId)) + '" alt="" loading="lazy"></div>' +
+        '<div class="thumb"><img src="' + esc(v.thumbnail || YTH.thumbnailUrl(v.youtubeId)) + '" alt="" loading="lazy"></div>' +
         '<div class="card-body">' +
           '<div class="card-title">' + esc(v.title) + '</div>' +
           '<div class="card-channel">' + esc(v.channelName) + '</div>' +
@@ -152,7 +152,7 @@
       html += emptyLibrary();
     } else {
       html += '<div class="grid channels-grid">' + groups.map(function (g) {
-        var thumb = g.thumbnail || (g.videos[0] && (g.videos[0].thumbnail || YT.thumbnailUrl(g.videos[0].youtubeId)));
+        var thumb = g.thumbnail || (g.videos[0] && (g.videos[0].thumbnail || YTH.thumbnailUrl(g.videos[0].youtubeId)));
         return '<a class="card channel-card" href="#/channel/' + encodeURIComponent(g.name) + '">' +
           '<div class="channel-avatar"><img src="' + esc(thumb) + '" alt="" loading="lazy"></div>' +
           '<div class="card-body"><div class="card-title">' + esc(g.name) + '</div>' +
@@ -163,22 +163,136 @@
     return html + '</main>';
   }
 
+  /* Approved videos to queue after `v`: same channel first, then the rest. */
+  function upNextFor(v) {
+    var all = visibleVideos().filter(function (o) { return o.youtubeId !== v.youtubeId; });
+    var same = all.filter(function (o) { return o.channelName === v.channelName; });
+    var rest = all.filter(function (o) { return o.channelName !== v.channelName; });
+    return same.concat(rest).slice(0, 25);
+  }
+
+  function watchInfo(v) {
+    return '<h1>' + esc(v.title) + '</h1><div class="muted">' + esc(v.channelName) + '</div>';
+  }
+
+  function upNextSection(v) {
+    var next = upNextFor(v);
+    if (!next.length) return '';
+    return '<h2>Up next</h2><div class="row">' + next.map(videoCard).join('') + '</div>';
+  }
+
   function viewWatch(id) {
     var v = findVideo(id);
     if (!v || v.hidden) {
       return kidHeader('videos') + '<main class="page"><div class="empty"><h2>That video isn’t in the library</h2><a class="btn btn-primary" href="#/videos">Back to videos</a></div></main>';
     }
-    var more = visibleVideos().filter(function (o) { return o.youtubeId !== v.youtubeId && o.channelName === v.channelName; }).slice(0, 8);
     return '' +
       '<div class="watch">' +
         '<div class="watch-bar">' +
           '<button class="btn btn-ghost btn-back" data-action="back">‹ Back</button>' +
           '<div class="watch-title-sm">' + esc(v.title) + '</div>' +
         '</div>' +
-        '<div class="player"><iframe src="' + esc(YT.embedUrl(v.youtubeId)) + '" title="' + esc(v.title) + '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>' +
-        '<div class="watch-info"><h1>' + esc(v.title) + '</h1><div class="muted">' + esc(v.channelName) + '</div></div>' +
-        (more.length ? '<section class="more"><h2>More from ' + esc(v.channelName) + '</h2><div class="row">' + more.map(videoCard).join('') + '</div></section>' : '') +
+        '<div class="player"><div id="yt-player"></div></div>' +
+        '<div class="watch-info">' + watchInfo(v) + '</div>' +
+        '<section class="more">' + upNextSection(v) + '</section>' +
       '</div>';
+  }
+
+  /* ---------------- player (YouTube IFrame API) ----------------
+     The official API lets us react to player state: queue approved videos as
+     a playlist, replace YouTube's end screen with our own, and stop playback
+     if an unapproved video starts from the player's own overlays. */
+
+  var player = null;
+  var playerApiPromise = null;
+  var mountToken = 0;
+
+  function loadPlayerApi() {
+    if (window.YT && window.YT.Player) return Promise.resolve();
+    if (playerApiPromise) return playerApiPromise;
+    playerApiPromise = new Promise(function (resolve, reject) {
+      var prev = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = function () { if (prev) prev(); resolve(); };
+      var script = document.createElement('script');
+      script.src = 'https://www.youtube.com/iframe_api';
+      script.onerror = function () { reject(new Error('player API failed to load')); };
+      document.head.appendChild(script);
+      setTimeout(function () { reject(new Error('player API timed out')); }, 8000);
+    });
+    return playerApiPromise;
+  }
+
+  function destroyPlayer() {
+    if (player) {
+      try { player.destroy(); } catch (e) { /* ignore */ }
+      player = null;
+    }
+  }
+
+  function mountPlayer(v) {
+    var token = ++mountToken;
+    var queue = upNextFor(v).map(function (o) { return o.youtubeId; });
+    session.currentVideoId = v.youtubeId;
+    session.queue = queue;
+
+    loadPlayerApi().then(function () {
+      if (token !== mountToken || !root.querySelector('#yt-player')) return; // navigated away
+      var vars = { rel: 0, playsinline: 1, iv_load_policy: 3 };
+      if (queue.length) vars.playlist = queue.join(',');
+      if (/^https?:$/.test(location.protocol)) vars.origin = location.origin;
+      player = new window.YT.Player('yt-player', {
+        host: 'https://www.youtube-nocookie.com',
+        videoId: v.youtubeId,
+        playerVars: vars,
+        events: { onStateChange: onPlayerStateChange }
+      });
+    }).catch(function () {
+      // No API (offline, blocked): fall back to a plain embed.
+      var host = root.querySelector('#yt-player');
+      if (token === mountToken && host) {
+        host.outerHTML = '<iframe src="' + esc(YTH.embedUrl(v.youtubeId)) + '" title="' + esc(v.title) + '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>';
+      }
+    });
+  }
+
+  function onPlayerStateChange(e) {
+    var states = window.YT.PlayerState;
+    if (!player) return;
+    if (e.data === states.PLAYING) {
+      var data = player.getVideoData ? player.getVideoData() : null;
+      var id = data && data.video_id;
+      if (!id || id === session.currentVideoId) return;
+      var v = findVideo(id);
+      if (!v || v.hidden) {
+        // Started from YouTube's own overlay, not from the approved queue.
+        destroyPlayer();
+        showPlayerScreen('<div class="end-title">That video isn’t in your library</div>');
+        return;
+      }
+      session.currentVideoId = id;
+      history.replaceState(null, '', location.pathname + location.search + '#/watch/' + id);
+      var info = root.querySelector('.watch-info'); if (info) info.innerHTML = watchInfo(v);
+      var bar = root.querySelector('.watch-title-sm'); if (bar) bar.textContent = v.title;
+      var more = root.querySelector('.more'); if (more) more.innerHTML = upNextSection(v);
+    } else if (e.data === states.ENDED) {
+      var q = session.queue || [];
+      var isLast = !q.length || q[q.length - 1] === session.currentVideoId;
+      if (isLast) {
+        destroyPlayer();
+        showPlayerScreen('<div class="end-title">All done!</div>');
+      }
+      // Otherwise the player moves on to the next approved video by itself.
+    }
+  }
+
+  function showPlayerScreen(message) {
+    var box = root.querySelector('.player');
+    if (!box) return;
+    box.innerHTML = '<div class="end-screen">' + message +
+      '<div class="btn-row">' +
+        '<button class="btn btn-primary" data-action="replay">↻ Watch again</button>' +
+        '<a class="btn" href="' + esc(session.lastList || '#/videos') + '">Back to videos</a>' +
+      '</div></div>';
   }
 
   /* ---------------- parent mode views ---------------- */
@@ -224,7 +338,7 @@
   function sourceRow(s) {
     var vids = state.videos.filter(function (v) { return v.sourceId === s.id; });
     var hiddenCount = vids.filter(function (v) { return v.hidden; }).length;
-    var thumb = s.thumbnail || (s.type === 'video' ? YT.thumbnailUrl(s.youtubeId) : '');
+    var thumb = s.thumbnail || (s.type === 'video' ? YTH.thumbnailUrl(s.youtubeId) : '');
     var html = '<li class="source">' +
       '<div class="source-main">' +
         '<div class="source-thumb ' + (s.type === 'channel' ? 'round' : '') + '">' + (thumb ? '<img src="' + esc(thumb) + '" alt="">' : '') + '</div>' +
@@ -244,7 +358,7 @@
         vids.sort(function (a, b) { return sortKey(b).localeCompare(sortKey(a)); }).map(function (v) {
           return '<li class="' + (v.hidden ? 'is-hidden' : '') + '">' +
             '<button class="video-toggle" data-action="toggle-hidden" data-video="' + esc(v.youtubeId) + '" aria-pressed="' + (v.hidden ? 'true' : 'false') + '">' +
-              '<img src="' + esc(YT.thumbnailUrl(v.youtubeId, 'default')) + '" alt="">' +
+              '<img src="' + esc(YTH.thumbnailUrl(v.youtubeId, 'default')) + '" alt="">' +
               '<span class="video-toggle-title">' + esc(v.title) + '</span>' +
               '<span class="badge">' + (v.hidden ? 'Hidden' : 'Shown') + '</span>' +
             '</button></li>';
@@ -324,6 +438,7 @@
     var r = route();
     var html;
     var mode = 'kid';
+    destroyPlayer();
     switch (r.name) {
       case 'watch': html = viewWatch(r.arg); mode = 'watch'; break;
       case 'channels': html = viewChannels(); break;
@@ -342,12 +457,16 @@
     }
     var auto = root.querySelector('[autofocus]');
     if (auto && !keepFocus && mode === 'parent') auto.focus();
+    if (mode === 'watch') {
+      var current = findVideo(r.arg);
+      if (current && !current.hidden) mountPlayer(current);
+    }
   }
 
   /* ---------------- actions ---------------- */
 
   function addFromUrl(url) {
-    var ref = YT.parseYouTubeUrl(url);
+    var ref = YTH.parseYouTubeUrl(url);
     if (!ref) {
       setStatus('error', 'That doesn’t look like a YouTube video or channel link.');
       return;
@@ -365,10 +484,10 @@
     setStatus('info', 'Looking up video details…');
     var key = state.settings.apiKey;
     var lookup = key
-      ? YT.fetchVideoDetails(key, videoId).catch(function () { return null; })
+      ? YTH.fetchVideoDetails(key, videoId).catch(function () { return null; })
       : Promise.resolve(null);
     return lookup.then(function (details) {
-      return details || YT.fetchVideoMetadata(videoId);
+      return details || YTH.fetchVideoMetadata(videoId);
     }).then(function (meta) {
       var now = new Date().toISOString();
       var source = {
@@ -384,7 +503,7 @@
         youtubeId: videoId,
         title: source.title,
         channelName: source.channelName,
-        thumbnail: YT.thumbnailUrl(videoId),
+        thumbnail: YTH.thumbnailUrl(videoId),
         sourceId: source.id,
         publishedAt: (meta && meta.publishedAt) || '',
         addedAt: now
@@ -408,7 +527,7 @@
     }
     session.busy = true;
     setStatus('info', 'Looking up channel…');
-    return YT.resolveChannel(key, ref).then(function (ch) {
+    return YTH.resolveChannel(key, ref).then(function (ch) {
       var dup = state.sources.filter(function (s) { return s.type === 'channel' && s.youtubeId === ch.channelId; })[0];
       if (dup) throw new Error('“' + dup.title + '” is already in the library.');
       var source = {
@@ -436,7 +555,7 @@
 
   /* Pull the latest uploads for a channel source, keeping hidden flags. */
   function syncChannel(source) {
-    return YT.fetchChannelUploads(state.settings.apiKey, source.uploadsPlaylistId, 50).then(function (uploads) {
+    return YTH.fetchChannelUploads(state.settings.apiKey, source.uploadsPlaylistId, 50).then(function (uploads) {
       var existing = {};
       state.videos.forEach(function (v) { existing[v.youtubeId] = v; });
       var added = 0;
@@ -536,6 +655,7 @@
     if (el.tagName === 'A') e.preventDefault();
     switch (action) {
       case 'back': go(session.lastList || '#/videos'); break;
+      case 'replay': render(); break;
       case 'lock':
         session.unlocked = false; session.status = null; session.filter = '';
         go('#/videos');

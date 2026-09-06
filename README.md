@@ -152,20 +152,20 @@ There is no cloud sync (by design), but you can carry the library over in a
 link:
 
 1. On the device where you curate (say, your phone), open Parent mode →
-   **Send to another device** → *Share link…*. The whole library is
-   compressed into the link itself; nothing is uploaded anywhere. On iPhone
-   this opens the share sheet, so you can AirDrop it straight to the iPad or
-   send it in Messages/email/Notes.
+   **Send to another device** → *Share link…*. The link lists your channel
+   and video IDs (plus hidden videos and a few settings); nothing is uploaded
+   anywhere. On iPhone this opens the share sheet, so you can AirDrop it
+   straight to the iPad or send it in Messages/email/Notes.
 2. Open the link on the other device. It shows what the link contains and
    asks for the parent PIN (or lets you create one on a fresh device), then
    **Add to my library** merges the items in, or **Replace my library**
-   swaps everything out.
+   swaps everything out. The other device then fetches video titles from
+   YouTube and, if it has an API key, each channel's details and uploads.
 
-Tick *Include my API key* before sharing if you want the other device to be
-able to refresh channels itself. Otherwise just re-share after you refresh.
-The PIN is never included. A typical library of a few dozen videos makes a
-link of a few thousand characters, which AirDrop, Messages and email handle
-fine; QR codes do not.
+Tick *Include my API key* before sharing so the other device can load
+channels (and refresh them later) without typing the key. The PIN is never
+included. Links are short: about 12 characters per video and 25 per channel,
+so a 60-video library is under 1,000 characters.
 
 **Backup file** (Parent mode → *Download backup*) works the same way with a
 JSON file instead of a link.

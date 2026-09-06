@@ -563,12 +563,13 @@
     var data = imp.data;
     var videos = data.sources.filter(function (x) { return x.type === 'video'; }).length;
     var channels = data.sources.filter(function (x) { return x.type === 'channel'; }).length;
-    var titles = data.sources.slice(0, 8).map(function (x) { return '<li>' + esc(x.title) + (x.type === 'channel' ? ' <span class="badge">Channel</span>' : '') + '</li>'; }).join('');
-    if (data.sources.length > 8) titles += '<li class="muted">…and ' + (data.sources.length - 8) + ' more</li>';
+    var titles = data.compact ? '' : data.sources.slice(0, 8).map(function (x) { return '<li>' + esc(x.title) + (x.type === 'channel' ? ' <span class="badge">Channel</span>' : '') + '</li>'; }).join('');
+    if (!data.compact && data.sources.length > 8) titles += '<li class="muted">…and ' + (data.sources.length - 8) + ' more</li>';
+    var note = data.compact ? '<p class="muted small">Titles and channel videos are fetched from YouTube after you add them' + (channels && !(data.settings && data.settings.apiKey) && !state.settings.apiKey ? ' (channels need a YouTube API key in Settings)' : '') + '.</p>' : '';
     return head + '<main class="page narrow"><div class="pin-box">' +
       '<h1>' + (isSample ? 'Add the sample library?' : 'Add shared videos?') + '</h1>' +
       '<p class="muted">' + (isSample ? 'The sample has ' : 'This link contains ') + videos + (videos === 1 ? ' video' : ' videos') + ' and ' + channels + (channels === 1 ? ' channel' : ' channels') + (data.settings && data.settings.apiKey ? ', plus an API key' : '') + '.</p>' +
-      (titles ? '<ul class="share-list">' + titles + '</ul>' : '') +
+      (titles ? '<ul class="share-list">' + titles + '</ul>' : '') + note +
       '<form data-form="import-link">' +
         (session.unlocked ? '' : '<label>Parent PIN<input type="password" inputmode="numeric" pattern="[0-9]*" name="pin" required autocomplete="current-password" autofocus></label>') +
         (session.pinError ? '<p class="error">' + esc(session.pinError) + '</p>' : '') +
@@ -587,14 +588,47 @@
     session.unlocked = true;
     session.import = null;
     setStatus('ok', replace ? 'Library replaced with ' + state.sources.length + ' items.' : 'Added ' + added + ' new ' + (added === 1 ? 'item' : 'items') + '.', 'add');
+    session.importHidden = {};
+    (data.hiddenIds || []).forEach(function (id) { session.importHidden[id] = true; });
     go('#/parent');
-    if (videosMissingDetails().length) setTimeout(fetchMissingDetails, 0);
+    setTimeout(completeImport, 0);
+  }
+
+  /* After a compact import: fetch channel details/uploads (needs an API
+     key), then titles for individual videos. */
+  function completeImport() {
+    var channels = state.sources.filter(function (src) { return src.type === 'channel' && src.needsDetails; });
+    if (!channels.length) { if (videosMissingDetails().length) fetchMissingDetails(); return; }
+    var key = state.settings.apiKey;
+    if (!key) {
+      setStatus('warn', channels.length + (channels.length === 1 ? ' channel needs' : ' channels need') + ' a YouTube API key to load its videos. Add one in Settings, then tap Refresh all channels.', 'library');
+      if (videosMissingDetails().length) setTimeout(fetchMissingDetails, 0);
+      return;
+    }
+    session.busy = true;
+    setStatus('info', 'Loading ' + channels.length + (channels.length === 1 ? ' channel…' : ' channels…'), 'library');
+    var chain = Promise.resolve(), failed = 0;
+    channels.forEach(function (src) {
+      chain = chain.then(function () {
+        return YTH.resolveChannel(key, { channelId: src.youtubeId }).then(function (ch) {
+          src.title = ch.title; src.channelName = ch.title; src.thumbnail = ch.thumbnail; src.uploadsPlaylistId = ch.uploadsPlaylistId;
+          return syncChannel(src);
+        }).then(function () { delete src.needsDetails; persist(); })
+          .catch(function () { failed++; });
+      });
+    });
+    chain.then(function () {
+      session.busy = false;
+      persist();
+      setStatus(failed ? 'warn' : 'ok', failed ? failed + ' channel(s) could not be loaded. Check the API key and tap Refresh all channels.' : 'Channels loaded.', 'library');
+      if (videosMissingDetails().length) setTimeout(fetchMissingDetails, 0);
+    });
   }
 
   function shareLink() {
     session.busy = true;
     setStatus('info', 'Making link…', 'share');
-    STORE.encodeShare(STORE.sharePayload(state, session.shareApiKey)).then(function (payload) {
+    Promise.resolve(STORE.encodeCompact(state, session.shareApiKey)).then(function (payload) {
       var base = location.href.split('#')[0];
       session.shareLink = base + '#/import/' + payload;
       session.busy = false;
@@ -725,14 +759,14 @@
 
       '<section class="panel">' +
         '<h2>Send to another device</h2>' +
-        '<p class="muted small">Make a link that carries your whole library. AirDrop or message it to the other device, open it there, and enter the PIN to add everything. Your PIN is not included.</p>' +
+        '<p class="muted small">Make a short link that lists your channels and videos. AirDrop or message it to the other device, open it there, and enter the PIN to add everything; titles and channel videos are fetched there. Your PIN is not included.</p>' +
         '<label class="check"><input type="checkbox" name="shareApiKey" data-role="share-api-key"' + (session.shareApiKey ? ' checked' : '') + (state.settings.apiKey ? '' : ' disabled') + '> Include my API key <span class="muted small">(lets the other device refresh channels)</span></label>' +
         '<div class="btn-row">' +
           '<button class="btn btn-primary" data-action="share-link"' + (state.sources.length ? '' : ' disabled') + '>' + (navigator.share ? 'Share link…' : 'Make link') + '</button>' +
           (session.shareLink ? '<button class="btn" data-action="copy-share-link">Copy link</button>' : '') +
         '</div>' +
         (session.shareLink ? '<textarea class="share-link" readonly rows="3" data-role="share-link" aria-label="Share link">' + esc(session.shareLink) + '</textarea>' +
-          '<p class="muted small">' + session.shareLink.length.toLocaleString() + ' characters. Long links are fine in AirDrop, Messages, email and Notes.</p>' : '') +
+          '<p class="muted small">' + session.shareLink.length.toLocaleString() + ' characters.</p>' : '') +
         statusHtml('share') +
       '</section>' +
 
@@ -796,7 +830,7 @@
     switch (r.name) {
       case 'parent': html = viewParent(); mode = 'parent'; break;
       case 'unlock': html = viewUnlock(); mode = 'parent'; break;
-      case 'import': html = viewImport(r.arg); mode = 'parent'; break;
+      case 'import': html = viewImport(location.hash.replace(/^#\/import\//, '')); mode = 'parent'; break;
       case 'sample': html = viewImport('sample'); mode = 'parent'; break;
       case 'watch': html = isLocked() ? viewLocked() : viewWatch(r.arg); mode = isLocked() ? 'kid' : 'watch'; break;
       case 'channels': html = isLocked() ? viewLocked() : viewChannels(); break;
@@ -929,7 +963,8 @@
           thumbnail: u.thumbnail,
           sourceId: source.id,
           publishedAt: u.publishedAt || '',
-          addedAt: new Date().toISOString()
+          addedAt: new Date().toISOString(),
+          hidden: !!(session.importHidden && session.importHidden[u.youtubeId])
         });
         added++;
       });
@@ -1069,7 +1104,10 @@
       case 'remove-source': removeSource(el.dataset.id); break;
       case 'refresh-source': refreshSources([findSource(el.dataset.id)].filter(Boolean)); break;
       case 'fetch-details': fetchMissingDetails(); break;
-      case 'refresh-all': refreshSources(state.sources.filter(function (s) { return s.type === 'channel'; })); break;
+      case 'refresh-all':
+        if (state.sources.some(function (s) { return s.type === 'channel' && s.needsDetails; }) && state.settings.apiKey) completeImport();
+        else refreshSources(state.sources.filter(function (s) { return s.type === 'channel'; }));
+        break;
       case 'toggle-hidden': {
         var v = findVideo(el.dataset.video);
         if (v) { v.hidden = !v.hidden; persist(); render(); }

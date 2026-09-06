@@ -88,14 +88,17 @@
       throw new Error('That file does not look like a Kid Tube export.');
     }
     if (replace) { state.sources = []; state.videos = []; }
-    var haveSource = {};
-    state.sources.forEach(function (s) { haveSource[s.id] = true; });
+    var haveSource = {}, haveChannel = {};
+    state.sources.forEach(function (s) { haveSource[s.id] = true; if (s.type === 'channel') haveChannel[s.youtubeId] = true; });
     var haveVideo = {};
     state.videos.forEach(function (v) { haveVideo[v.youtubeId] = true; });
 
     var added = 0;
     data.sources.forEach(function (s) {
-      if (s && s.id && !haveSource[s.id]) { state.sources.push(s); haveSource[s.id] = true; added++; }
+      if (!s || !s.id || haveSource[s.id]) return;
+      if (s.type === 'channel' && haveChannel[s.youtubeId]) return;
+      state.sources.push(s); haveSource[s.id] = true; added++;
+      if (s.type === 'channel') haveChannel[s.youtubeId] = true;
     });
     data.videos.forEach(function (v) {
       if (v && v.youtubeId && !haveVideo[v.youtubeId] && haveSource[v.sourceId]) {
@@ -130,6 +133,62 @@
     var bytes = new Uint8Array(bin.length);
     for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     return bytes;
+  }
+
+  /* Compact share link: only channel ids, video ids, hidden ids and a few
+     settings. The receiving device looks up titles and channel uploads
+     itself, so a 60-video library fits in well under 1,000 characters. */
+  function encodeCompact(state, includeApiKey) {
+    var channels = [], videos = [], hidden = [];
+    state.sources.forEach(function (src) {
+      if (src.type === 'channel') channels.push(src.youtubeId);
+      else if (src.type === 'video') videos.push(src.youtubeId);
+    });
+    state.videos.forEach(function (v) { if (v.hidden) hidden.push(v.youtubeId); });
+    var parts = [];
+    if (channels.length) parts.push('c=' + channels.join(','));
+    if (videos.length) parts.push('v=' + videos.join(','));
+    if (hidden.length) parts.push('h=' + hidden.join(','));
+    if (state.settings.childName && state.settings.childName !== 'My Videos') parts.push('n=' + encodeURIComponent(state.settings.childName));
+    if (typeof state.settings.watchMinutes === 'number') parts.push('m=' + state.settings.watchMinutes);
+    if (state.settings.blockYouTubeLinks === false) parts.push('b=0');
+    if (state.settings.useYouTubeSignIn) parts.push('s=1');
+    if (includeApiKey && state.settings.apiKey) parts.push('k=' + encodeURIComponent(state.settings.apiKey));
+    return '2.' + parts.join('&');
+  }
+
+  var ID_RE = /^[A-Za-z0-9_-]{11}$/;
+  var CHANNEL_RE = /^UC[A-Za-z0-9_-]{22}$/;
+
+  /* Expand a compact link into the same shape as a full export. Titles are
+     placeholders that the app fills in after import. */
+  function decodeCompact(body) {
+    var q = {};
+    body.split('&').forEach(function (part) {
+      var i = part.indexOf('=');
+      if (i > 0) q[part.slice(0, i)] = part.slice(i + 1);
+    });
+    var now = new Date().toISOString();
+    var sources = [], videos = [];
+    (q.c ? q.c.split(',') : []).forEach(function (id) {
+      if (!CHANNEL_RE.test(id)) return;
+      sources.push({ id: 'ch-' + id, type: 'channel', youtubeId: id, uploadsPlaylistId: 'UU' + id.slice(2),
+        title: 'Channel ' + id.slice(2, 8) + '…', channelName: '', thumbnail: '', addedAt: now, lastSyncedAt: null, needsDetails: true });
+    });
+    (q.v ? q.v.split(',') : []).forEach(function (id) {
+      if (!ID_RE.test(id)) return;
+      sources.push({ id: 'v-' + id, type: 'video', youtubeId: id, title: 'YouTube video ' + id, channelName: '', addedAt: now });
+      videos.push({ youtubeId: id, title: 'YouTube video ' + id, channelName: '', sourceId: 'v-' + id, publishedAt: '', addedAt: now });
+    });
+    if (!sources.length) throw new Error('This link does not contain any videos or channels.');
+    var settings = {};
+    if (q.n) settings.childName = decodeURIComponent(q.n);
+    if (q.m !== undefined && !isNaN(parseInt(q.m, 10))) settings.watchMinutes = parseInt(q.m, 10);
+    if (q.b === '0') settings.blockYouTubeLinks = false;
+    if (q.s === '1') settings.useYouTubeSignIn = true;
+    if (q.k) settings.apiKey = decodeURIComponent(q.k);
+    return { app: 'kidtube', version: 2, compact: true, settings: settings, sources: sources, videos: videos,
+      hiddenIds: (q.h ? q.h.split(',') : []).filter(function (id) { return ID_RE.test(id); }) };
   }
 
   function sharePayload(state, includeApiKey) {
@@ -167,6 +226,9 @@
 
   function decodeShare(str) {
     var kind = str.slice(0, 2), body = str.slice(2);
+    if (kind === '2.') {
+      return Promise.resolve().then(function () { return decodeCompact(body); });
+    }
     var bytes;
     try { bytes = base64UrlToBytes(body); } catch (e) { return Promise.reject(new Error('This link is damaged or incomplete.')); }
     if (kind === 'j.') {
@@ -180,6 +242,7 @@
   }
 
   window.STORE = {
+    encodeCompact: encodeCompact,
     sharePayload: sharePayload,
     encodeShare: encodeShare,
     decodeShare: decodeShare,

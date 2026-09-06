@@ -233,3 +233,22 @@ input:focus { outline: none; border-color: var(--accent); }
 .end-screen .btn-primary { background: var(--accent); border-color: var(--accent); }
 label.check { display: flex; align-items: flex-start; gap: 10px; font-weight: 600; margin: 4px 0 16px; }
 label.check input { margin: 4px 0 0; width: 22px; height: 22px; flex-shrink: 0; }
+
+/* ---------- watch-time timer & lock screen ---------- */
+.timer {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 40px; padding: 0 14px;
+  border-radius: 999px; background: #dcfce7; color: #166534; font-weight: 800; font-variant-numeric: tabular-nums;
+  text-decoration: none; white-space: nowrap; font-size: 1rem;
+}
+.timer.low { background: #fee2e2; color: #991b1b; animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.55; } }
+.watch-bar .timer { margin-left: auto; }
+.topbar .timer { margin-left: 4px; }
+@media (max-width: 560px) { .topbar .timer { margin-left: auto; } .topbar .parent-link { margin-left: 0; } }
+.lock-screen .empty-icon { font-size: 80px; }
+.btn-big { min-height: 60px; font-size: 1.15rem; padding: 0 28px; }
+label.inline { display: inline-flex; align-items: center; gap: 8px; margin: 0; white-space: nowrap; }
+select {
+  font: inherit; font-size: 1rem; min-height: var(--tap); padding: 0 12px; border-radius: 12px;
+  border: 2px solid var(--line); background: var(--surface); color: var(--text);
+}

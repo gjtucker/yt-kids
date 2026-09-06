@@ -7,7 +7,8 @@
   function defaults() {
     return {
       version: 1,
-      settings: { parentPinHash: null, childName: 'My Videos', apiKey: '', blockYouTubeLinks: true, useYouTubeSignIn: false },
+      settings: { parentPinHash: null, childName: 'My Videos', apiKey: '', blockYouTubeLinks: true, useYouTubeSignIn: false, watchMinutes: 15 },
+      watch: { until: 0 },
       sources: [],
       videos: []
     };
@@ -22,6 +23,7 @@
         state.settings = Object.assign(state.settings, parsed.settings || {});
         state.sources = Array.isArray(parsed.sources) ? parsed.sources : [];
         state.videos = Array.isArray(parsed.videos) ? parsed.videos : [];
+        if (parsed.watch && typeof parsed.watch.until === 'number') state.watch = parsed.watch;
       }
     } catch (e) {
       console.warn('Could not read saved data', e);
@@ -73,7 +75,7 @@
       app: 'kidtube',
       version: 1,
       exportedAt: new Date().toISOString(),
-      settings: { childName: state.settings.childName, apiKey: state.settings.apiKey, blockYouTubeLinks: state.settings.blockYouTubeLinks, useYouTubeSignIn: state.settings.useYouTubeSignIn },
+      settings: { childName: state.settings.childName, apiKey: state.settings.apiKey, blockYouTubeLinks: state.settings.blockYouTubeLinks, useYouTubeSignIn: state.settings.useYouTubeSignIn, watchMinutes: state.settings.watchMinutes },
       sources: state.sources,
       videos: state.videos
     }, null, 2);
@@ -104,6 +106,7 @@
       if (data.settings.apiKey && !state.settings.apiKey) state.settings.apiKey = data.settings.apiKey;
       if (typeof data.settings.blockYouTubeLinks === 'boolean') state.settings.blockYouTubeLinks = data.settings.blockYouTubeLinks;
       if (typeof data.settings.useYouTubeSignIn === 'boolean') state.settings.useYouTubeSignIn = data.settings.useYouTubeSignIn;
+      if (typeof data.settings.watchMinutes === 'number') state.settings.watchMinutes = data.settings.watchMinutes;
     }
     return added;
   }

@@ -21,6 +21,17 @@ No search box, no Shorts, no comments, no trending feed.
 The PIN only prevents accidental taps; it is not real security. A reload
 always starts in kid mode.
 
+### Watch time (parent unlock timer)
+
+Once a PIN exists, kid mode is locked by default. The child sees a lock screen
+with an **Ask a grown-up to unlock** button; entering the parent PIN there
+unlocks the library for 15 minutes (configurable in Parent mode → Watch time:
+5–60 minutes, or no limit). A countdown chip shows in the header and on the
+player; tapping it lets a parent restart the timer. When time runs out the
+player stops and the lock screen returns. The expiry is stored locally, so
+reloading the page neither resets nor extends it. Parent mode also has
+**Start now** and **Lock now** buttons.
+
 ### Playback
 
 Videos play in the official YouTube embed through the IFrame Player API:
@@ -144,7 +155,8 @@ manifest.webmanifest  "Add to Home Screen" support
 ## Data model
 
 ```js
-settings = { parentPinHash, childName, apiKey }
+settings = { parentPinHash, childName, apiKey, blockYouTubeLinks, useYouTubeSignIn, watchMinutes }
+watch    = { until }   // ms timestamp when the current unlock expires
 sources  = [{ id, type: "video" | "channel", youtubeId, title, channelName, addedAt,
               // channels only:
               uploadsPlaylistId, thumbnail, lastSyncedAt }]

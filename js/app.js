@@ -25,9 +25,16 @@
     if (!STORE.save(state)) setStatus('error', 'Could not save. Is browser storage full or blocked?');
   }
 
-  function setStatus(type, text) {
-    session.status = text ? { type: type, text: text } : null;
+  /* `where` names the parent-mode panel the message belongs under ('add' by default). */
+  function setStatus(type, text, where) {
+    session.status = text ? { type: type, text: text, where: where || 'add' } : null;
     render();
+  }
+
+  function statusHtml(where) {
+    var st = session.status;
+    if (!st || st.where !== where) return '';
+    return '<p class="status status-' + st.type + '" role="status">' + esc(st.text) + '</p>';
   }
 
   function sortKey(v) {
@@ -68,6 +75,63 @@
     return isNaN(d) ? '' : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
   }
 
+  /* ---------------- watch time (parent unlock timer) ----------------
+     The kid side is locked until a parent enters the PIN, which unlocks it
+     for `settings.watchMinutes` (0 = no limit). The expiry is persisted so a
+     reload neither resets nor extends it. */
+
+  function limitEnabled() {
+    return (state.settings.watchMinutes || 0) > 0 && !!state.settings.parentPinHash;
+  }
+
+  function msLeft() {
+    return Math.max(0, (state.watch && state.watch.until || 0) - Date.now());
+  }
+
+  function isLocked() {
+    return limitEnabled() && msLeft() === 0;
+  }
+
+  function startWatchTime() {
+    state.watch = { until: Date.now() + (state.settings.watchMinutes || 15) * 60000 };
+    persist();
+  }
+
+  function endWatchTime() {
+    state.watch = { until: 0 };
+    persist();
+  }
+
+  function formatLeft(ms) {
+    var total = Math.ceil(ms / 1000);
+    var m = Math.floor(total / 60), sec = total % 60;
+    return m + ':' + (sec < 10 ? '0' : '') + sec;
+  }
+
+  function timerChip() {
+    if (!limitEnabled()) return '';
+    var left = msLeft();
+    return '<a class="timer' + (left < 60000 ? ' low' : '') + '" href="#/unlock" data-role="timer" aria-label="Watch time left">⏱ ' + formatLeft(left) + '</a>';
+  }
+
+  function tick() {
+    var locked = isLocked();
+    if (locked !== session.wasLocked) {
+      session.wasLocked = locked;
+      var name = route().name;
+      if (name !== 'parent' && name !== 'unlock') render();
+      return;
+    }
+    if (!locked && limitEnabled()) {
+      var left = msLeft();
+      var chips = root.querySelectorAll('[data-role="timer"]');
+      for (var i = 0; i < chips.length; i++) {
+        chips[i].textContent = '⏱ ' + formatLeft(left);
+        chips[i].classList.toggle('low', left < 60000);
+      }
+    }
+  }
+
   /* ---------------- routing ---------------- */
 
   function route() {
@@ -87,10 +151,12 @@
     return '' +
       '<header class="topbar">' +
         '<a class="brand" href="#/videos"><span class="brand-icon" aria-hidden="true">▶</span>' + esc(name) + '</a>' +
-        '<nav class="tabs" aria-label="Sections">' +
-          '<a href="#/videos" class="' + (active === 'videos' ? 'active' : '') + '">Videos</a>' +
-          '<a href="#/channels" class="' + (active === 'channels' ? 'active' : '') + '">Channels</a>' +
-        '</nav>' +
+        (isLocked() ? '<span class="tabs"></span>' :
+          '<nav class="tabs" aria-label="Sections">' +
+            '<a href="#/videos" class="' + (active === 'videos' ? 'active' : '') + '">Videos</a>' +
+            '<a href="#/channels" class="' + (active === 'channels' ? 'active' : '') + '">Channels</a>' +
+          '</nav>') +
+        (isLocked() ? '' : timerChip()) +
         '<a class="parent-link" href="#/parent" aria-label="Parent mode"><span aria-hidden="true">🔒</span><span class="parent-link-text"> Parent</span></a>' +
       '</header>';
   }
@@ -191,6 +257,7 @@
         '<div class="watch-bar">' +
           '<button class="btn btn-ghost btn-back" data-action="back">‹ Back</button>' +
           '<div class="watch-title-sm">' + esc(v.title) + '</div>' +
+          timerChip() +
         '</div>' +
         '<div class="player"><div id="yt-player"></div></div>' +
         '<div class="watch-info">' + watchInfo(v) + '</div>' +
@@ -314,6 +381,30 @@
       '</div></div>';
   }
 
+  function viewLocked() {
+    var expired = state.watch && state.watch.until > 0;
+    return kidHeader('') + '<main class="page"><div class="empty lock-screen">' +
+      '<div class="empty-icon" aria-hidden="true">' + (expired ? '⏰' : '🔒') + '</div>' +
+      '<h2>' + (expired ? 'Time’s up for now!' : 'Ready to watch?') + '</h2>' +
+      '<p>A grown-up can unlock ' + (state.settings.watchMinutes || 15) + ' minutes of videos.</p>' +
+      '<a class="btn btn-primary btn-big" href="#/unlock">Ask a grown-up to unlock</a>' +
+    '</div></main>';
+  }
+
+  function viewUnlock() {
+    if (!state.settings.parentPinHash) return viewPinSetup();
+    var minutes = state.settings.watchMinutes || 15;
+    return pinShell(
+      '<h1>Unlock ' + minutes + ' minutes</h1>' +
+      '<p class="muted">Enter the parent PIN to start watch time' + (limitEnabled() && msLeft() > 0 ? ' again (the timer restarts at ' + minutes + ' minutes)' : '') + '.</p>' +
+      '<form data-form="unlock">' +
+        '<label>PIN<input type="password" inputmode="numeric" pattern="[0-9]*" name="pin" required autocomplete="current-password" autofocus></label>' +
+        (session.pinError ? '<p class="error">' + esc(session.pinError) + '</p>' : '') +
+        '<button class="btn btn-primary btn-block" type="submit">Start ' + minutes + ' minutes</button>' +
+      '</form>'
+    );
+  }
+
   /* ---------------- parent mode views ---------------- */
 
   function viewParent() {
@@ -387,7 +478,6 @@
   }
 
   function viewDashboard() {
-    var status = session.status;
     var channelCount = state.sources.filter(function (s) { return s.type === 'channel'; }).length;
     return '' +
       '<header class="topbar parent-bar">' +
@@ -402,10 +492,28 @@
           '<input type="text" name="url" placeholder="Paste a YouTube link…" required autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="url"' + (session.busy ? ' disabled' : '') + '>' +
           '<button class="btn btn-primary" type="submit"' + (session.busy ? ' disabled' : '') + '>' + (session.busy ? 'Working…' : 'Add') + '</button>' +
         '</form>' +
-        (status ? '<p class="status status-' + status.type + '" role="status">' + esc(status.text) + '</p>' : '') +
+        statusHtml('add') +
         '<p class="muted small">Works with youtube.com/watch, youtu.be, Shorts and embed links. ' +
           (state.settings.apiKey ? 'Channel links (youtube.com/@name) add that channel’s latest uploads.' : 'To add whole channels, enter a YouTube API key in Settings below.') +
           ' <a href="#" data-action="use-sample">Try a sample video</a></p>' +
+      '</section>' +
+
+      '<section class="panel">' +
+        '<div class="panel-head"><h2>Watch time</h2>' +
+          '<span class="badge">' + (!(state.settings.watchMinutes || 0) ? 'No limit' : msLeft() > 0 ? formatLeft(msLeft()) + ' left' : 'Locked') + '</span></div>' +
+        '<p class="muted small">Kid mode stays locked until you unlock it with your PIN. It relocks when the time runs out.</p>' +
+        statusHtml('watch') +
+        '<form data-form="watch-time" class="btn-row">' +
+          '<label class="inline">Unlock for <select name="watchMinutes">' +
+            [0, 5, 10, 15, 20, 30, 45, 60].map(function (m) {
+              return '<option value="' + m + '"' + ((state.settings.watchMinutes || 0) === m ? ' selected' : '') + '>' + (m ? m + ' minutes' : 'No limit (always unlocked)') + '</option>';
+            }).join('') + '</select></label>' +
+          '<button class="btn" type="submit">Save</button>' +
+        '</form>' +
+        ((state.settings.watchMinutes || 0) ? '<div class="btn-row">' +
+          '<button class="btn btn-primary" data-action="start-watch">Start ' + state.settings.watchMinutes + ' minutes now</button>' +
+          (msLeft() > 0 ? '<button class="btn" data-action="end-watch">Lock now</button>' : '') +
+        '</div>' : '') +
       '</section>' +
 
       '<section class="panel">' +
@@ -427,6 +535,7 @@
           '<label class="check"><input type="checkbox" name="useYouTubeSignIn"' + (state.settings.useYouTubeSignIn ? ' checked' : '') + '> Use my YouTube sign-in <span class="muted small">(with YouTube Premium, videos play without ads; sign in to youtube.com in this browser first)</span></label>' +
           '<button class="btn" type="submit">Save settings</button>' +
         '</form>' +
+        statusHtml('settings') +
         '<details class="subpanel" data-details="change-pin"' + (session.open['change-pin'] ? ' open' : '') + '><summary>Change PIN</summary>' +
           '<form data-form="change-pin">' +
             '<label>New PIN<input type="password" inputmode="numeric" pattern="[0-9]*" name="pin" minlength="4" required autocomplete="new-password"></label>' +
@@ -444,6 +553,7 @@
           '<button class="btn" data-action="copy-export">Copy to clipboard</button>' +
           '<label class="btn file-btn">Import backup<input type="file" accept="application/json,.json" data-role="import" hidden></label>' +
         '</div>' +
+        statusHtml('backup') +
       '</section>' +
 
       '<section class="panel danger-zone">' +
@@ -460,12 +570,14 @@
     var html;
     var mode = 'kid';
     destroyPlayer();
+    session.wasLocked = isLocked();
     switch (r.name) {
-      case 'watch': html = viewWatch(r.arg); mode = 'watch'; break;
-      case 'channels': html = viewChannels(); break;
-      case 'channel': html = viewVideos(r.arg); break;
       case 'parent': html = viewParent(); mode = 'parent'; break;
-      default: html = viewVideos(null);
+      case 'unlock': html = viewUnlock(); mode = 'parent'; break;
+      case 'watch': html = isLocked() ? viewLocked() : viewWatch(r.arg); mode = isLocked() ? 'kid' : 'watch'; break;
+      case 'channels': html = isLocked() ? viewLocked() : viewChannels(); break;
+      case 'channel': html = isLocked() ? viewLocked() : viewVideos(r.arg); break;
+      default: html = isLocked() ? viewLocked() : viewVideos(null);
     }
     document.body.dataset.mode = mode;
     var active = document.activeElement;
@@ -646,9 +758,9 @@
       try {
         var added = STORE.importJson(state, reader.result);
         persist();
-        setStatus('ok', 'Imported ' + added + ' new ' + (added === 1 ? 'item' : 'items') + '.');
+        setStatus('ok', 'Imported ' + added + ' new ' + (added === 1 ? 'item' : 'items') + '.', 'backup');
       } catch (err) {
-        setStatus('error', 'Import failed: ' + err.message);
+        setStatus('error', 'Import failed: ' + err.message, 'backup');
       }
     };
     reader.readAsText(file);
@@ -677,6 +789,8 @@
     switch (action) {
       case 'back': go(session.lastList || '#/videos'); break;
       case 'replay': render(); break;
+      case 'start-watch': startWatchTime(); setStatus('ok', 'Unlocked for ' + state.settings.watchMinutes + ' minutes.', 'watch'); break;
+      case 'end-watch': endWatchTime(); setStatus('ok', 'Locked.', 'watch'); break;
       case 'lock':
         session.unlocked = false; session.status = null; session.filter = '';
         go('#/videos');
@@ -697,9 +811,9 @@
       case 'export': download('kidtube-backup-' + new Date().toISOString().slice(0, 10) + '.json', STORE.exportJson(state)); break;
       case 'copy-export':
         if (navigator.clipboard) {
-          navigator.clipboard.writeText(STORE.exportJson(state)).then(function () { setStatus('ok', 'Backup copied to clipboard.'); },
-            function () { setStatus('error', 'Clipboard not available. Use Download instead.'); });
-        } else setStatus('error', 'Clipboard not available. Use Download instead.');
+          navigator.clipboard.writeText(STORE.exportJson(state)).then(function () { setStatus('ok', 'Backup copied to clipboard.', 'backup'); },
+            function () { setStatus('error', 'Clipboard not available. Use Download instead.', 'backup'); });
+        } else setStatus('error', 'Clipboard not available. Use Download instead.', 'backup');
         break;
       case 'reset':
         if (confirm('Delete everything, including the PIN? This cannot be undone.')) {
@@ -718,7 +832,23 @@
     e.preventDefault();
     switch (form.dataset.form) {
       case 'pin-setup':
-        setPin(form, function () { session.unlocked = true; render(); });
+        setPin(form, function () {
+          if (route().name === 'unlock') { startWatchTime(); go(session.lastList || '#/videos'); }
+          else { session.unlocked = true; render(); }
+        });
+        break;
+      case 'unlock':
+        STORE.hashPin(form.pin.value.trim()).then(function (hash) {
+          if (hash !== state.settings.parentPinHash) { session.pinError = 'Wrong PIN, try again.'; render(); return; }
+          session.pinError = '';
+          startWatchTime();
+          go(session.lastList || '#/videos');
+        });
+        break;
+      case 'watch-time':
+        state.settings.watchMinutes = parseInt(form.watchMinutes.value, 10) || 0;
+        persist();
+        setStatus('ok', state.settings.watchMinutes ? 'Watch time set to ' + state.settings.watchMinutes + ' minutes per unlock.' : 'Time limit turned off.', 'watch');
         break;
       case 'pin-entry':
         STORE.hashPin(form.pin.value.trim()).then(function (hash) {
@@ -728,7 +858,7 @@
         });
         break;
       case 'change-pin':
-        setPin(form, function () { setStatus('ok', 'PIN updated.'); });
+        setPin(form, function () { setStatus('ok', 'PIN updated.', 'settings'); });
         break;
       case 'add':
         if (session.busy) return;
@@ -740,7 +870,7 @@
         state.settings.blockYouTubeLinks = form.blockYouTubeLinks.checked;
         state.settings.useYouTubeSignIn = form.useYouTubeSignIn.checked;
         persist();
-        setStatus('ok', 'Settings saved.');
+        setStatus('ok', 'Settings saved.', 'settings');
         break;
     }
   });
@@ -764,7 +894,7 @@
     session.pinError = '';
     var name = route().name;
     if (name === 'videos' || name === 'channels' || name === 'channel') session.lastList = location.hash;
-    if (route().name !== 'parent') session.status = null;
+    if (name !== 'parent') session.status = null;
     if (route().name !== 'videos' && route().name !== 'channel') session.filter = '';
     render();
     window.scrollTo(0, 0);
@@ -772,4 +902,5 @@
 
   // Always start in kid mode: a reload never lands in an unlocked parent view.
   render();
+  setInterval(tick, 1000);
 })();

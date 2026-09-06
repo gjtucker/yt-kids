@@ -430,7 +430,7 @@
     iframe.setAttribute('allowfullscreen', '');
     iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
     if (state.settings.blockYouTubeLinks !== false) {
-      iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');
+      iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation allow-storage-access-by-user-activation');
     }
     return iframe;
   }
@@ -462,11 +462,15 @@
   }
 
   /* Switch the running player to another approved video without rebuilding
-     the iframe (keeps playback going on iOS, which needs a tap per iframe). */
-  function playInPlace(v) {
-    if (!player || !player.loadVideoById) return false;
+     the iframe. `autoplay` is used when a video ends and the next one
+     follows on; a tap on a card only cues the video (thumbnail + play
+     button), so browsing between videos doesn't start playback, and its
+     pre-roll ad, until the child actually presses play. */
+  function playInPlace(v, autoplay) {
+    if (!player || !player.loadVideoById || !player.cueVideoById) return false;
     showNowPlaying(v);
-    player.loadVideoById(v.youtubeId);
+    if (autoplay) player.loadVideoById(v.youtubeId);
+    else player.cueVideoById(v.youtubeId);
     return true;
   }
 
@@ -497,7 +501,7 @@
       }
     } else if (e.data === states.ENDED) {
       var next = queuedVideos()[0];
-      if (next && playInPlace(next)) return;
+      if (next && playInPlace(next, true)) return;
       destroyPlayer();
       showPlayerScreen('<div class="end-title">All done!</div>');
     }
@@ -1077,7 +1081,7 @@
     var card = e.target.closest('a.card');
     if (card && route().name === 'watch' && player && player.loadVideoById) {
       var target = findVideo((card.getAttribute('href') || '').split('/').pop());
-      if (target && !target.hidden) { e.preventDefault(); playInPlace(target); window.scrollTo(0, 0); return; }
+      if (target && !target.hidden) { e.preventDefault(); playInPlace(target, false); window.scrollTo(0, 0); return; }
     }
     var submit = e.target.closest('button[type="submit"][name="mode"]');
     if (submit) session.lastSubmit = submit.value; // fallback for browsers without event.submitter

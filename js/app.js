@@ -408,11 +408,15 @@
   /* ---------------- import from a share link ---------------- */
 
   function viewImport(payload) {
-    var head = '<header class="topbar parent-bar"><div class="brand"><span class="brand-icon" aria-hidden="true">📥</span>Shared library</div></header>';
+    var isSample = payload === 'sample';
+    var head = '<header class="topbar parent-bar"><div class="brand"><span class="brand-icon" aria-hidden="true">📥</span>' + (isSample ? 'Sample library' : 'Shared library') + '</div></header>';
     var imp = session.import;
     if (!imp || imp.key !== payload) {
       session.import = { key: payload, data: null, error: null };
-      STORE.decodeShare(payload).then(function (data) {
+      var decoded = isSample
+        ? Promise.resolve(JSON.parse(JSON.stringify(window.SAMPLE_LIBRARY || null)))
+        : STORE.decodeShare(payload);
+      decoded.then(function (data) {
         if (!data || !Array.isArray(data.sources) || !Array.isArray(data.videos)) throw new Error('This is not a Kid Tube share link.');
         session.import.data = data; render();
       }).catch(function (err) { session.import.error = err.message; render(); });
@@ -429,8 +433,8 @@
     var titles = data.sources.slice(0, 8).map(function (x) { return '<li>' + esc(x.title) + (x.type === 'channel' ? ' <span class="badge">Channel</span>' : '') + '</li>'; }).join('');
     if (data.sources.length > 8) titles += '<li class="muted">…and ' + (data.sources.length - 8) + ' more</li>';
     return head + '<main class="page narrow"><div class="pin-box">' +
-      '<h1>Add shared videos?</h1>' +
-      '<p class="muted">This link contains ' + videos + (videos === 1 ? ' video' : ' videos') + ' and ' + channels + (channels === 1 ? ' channel' : ' channels') + (data.settings && data.settings.apiKey ? ', plus an API key' : '') + '.</p>' +
+      '<h1>' + (isSample ? 'Add the sample library?' : 'Add shared videos?') + '</h1>' +
+      '<p class="muted">' + (isSample ? 'The sample has ' : 'This link contains ') + videos + (videos === 1 ? ' video' : ' videos') + ' and ' + channels + (channels === 1 ? ' channel' : ' channels') + (data.settings && data.settings.apiKey ? ', plus an API key' : '') + '.</p>' +
       (titles ? '<ul class="share-list">' + titles + '</ul>' : '') +
       '<form data-form="import-link">' +
         (session.unlocked ? '' : '<label>Parent PIN<input type="password" inputmode="numeric" pattern="[0-9]*" name="pin" required autocomplete="current-password" autofocus></label>') +
@@ -565,7 +569,7 @@
         statusHtml('add') +
         '<p class="muted small">Works with youtube.com/watch, youtu.be, Shorts and embed links. ' +
           (state.settings.apiKey ? 'Channel links (youtube.com/@name) add that channel’s latest uploads.' : 'To add whole channels, enter a YouTube API key in Settings below.') +
-          ' <a href="#" data-action="use-sample">Try a sample video</a></p>' +
+          ' <a href="#" data-action="use-sample">Try a sample video</a>' + (window.SAMPLE_LIBRARY ? ' or <a href="#/sample">load the sample library</a> (' + window.SAMPLE_LIBRARY.sources.length + ' videos).' : '') + '</p>' +
       '</section>' +
 
       '<section class="panel">' +
@@ -660,6 +664,7 @@
       case 'parent': html = viewParent(); mode = 'parent'; break;
       case 'unlock': html = viewUnlock(); mode = 'parent'; break;
       case 'import': html = viewImport(r.arg); mode = 'parent'; break;
+      case 'sample': html = viewImport('sample'); mode = 'parent'; break;
       case 'watch': html = isLocked() ? viewLocked() : viewWatch(r.arg); mode = isLocked() ? 'kid' : 'watch'; break;
       case 'channels': html = isLocked() ? viewLocked() : viewChannels(); break;
       case 'channel': html = isLocked() ? viewLocked() : viewVideos(r.arg); break;
@@ -1038,7 +1043,7 @@
     session.pinError = '';
     var name = route().name;
     if (name === 'videos' || name === 'channels' || name === 'channel') session.lastList = location.hash;
-    if (name !== 'parent' && name !== 'import') session.status = null;
+    if (name !== 'parent' && name !== 'import' && name !== 'sample') session.status = null;
     if (route().name !== 'videos' && route().name !== 'channel') session.filter = '';
     render();
     window.scrollTo(0, 0);

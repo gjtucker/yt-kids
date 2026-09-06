@@ -110,6 +110,16 @@ every push to `main`. Go to **Settings → Pages** and set the source to
 **GitHub Actions**. Adjust the branch name in the workflow if your default
 branch is different.
 
+## Sample library
+
+Open `https://<user>.github.io/<repo>/sample/` (or `#/sample`) to load a
+starter set of about 60 videos: LEGO builds and working LEGO locks, gem
+mining, geodes, gold panning and treasure hunts, and fire safety and fire
+alarm videos. It goes through the same PIN-protected import screen as a share
+link, so nothing is added until a parent confirms. The list lives in
+`js/sample.js`; edit or delete that file to change or remove it. The videos
+were picked from search results and are worth a quick skim in Parent mode.
+
 ## Optional: YouTube Data API key (for channels)
 
 Individual videos never need a key. To add whole channels:
@@ -168,7 +178,9 @@ removes the library, so export a backup first if you can still get in.
 index.html            app shell
 css/styles.css        all styling
 js/youtube.js         URL parsing, thumbnails, oEmbed metadata, optional Data API calls
-js/store.js           localStorage persistence, PIN hashing, import/export
+js/store.js           localStorage persistence, PIN hashing, import/export, share links
+js/sample.js          the sample library offered at #/sample
+sample/index.html     redirects /sample/ to #/sample
 js/app.js             routing, kid mode, parent mode
 manifest.webmanifest  "Add to Home Screen" support
 .nojekyll             tells GitHub Pages to serve files as-is

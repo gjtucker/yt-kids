@@ -36,14 +36,16 @@ reloading the page neither resets nor extends it. Parent mode also has
 
 Videos play in the official YouTube embed through the IFrame Player API:
 
-* The other approved videos (same channel first) are queued as a playlist, so
-  when one video ends the next approved one plays instead of YouTube's
-  suggestions.
-* When the last queued video ends, the app replaces YouTube's end screen with
-  its own "All done" screen offering *Watch again* and *Back to videos*.
-* If a video that is not in the library starts (for example from the
-  suggestions YouTube shows while paused), playback is stopped and the child is
-  sent back to the library.
+* The app keeps its own queue of the other approved videos (same channel
+  first). The "Up next" list under the player is exactly that queue, in
+  order: when a video ends the first card plays next, in the same player, and
+  tapping any card plays it immediately without reloading the player.
+* When the queue runs out, the app replaces YouTube's end screen with its own
+  "All done" screen offering *Watch again* and *Back to videos*.
+* If a video that is not in the library keeps playing for more than half a
+  minute (for example one picked from the suggestions YouTube shows while
+  paused), playback is stopped and the child is sent back to the library. The
+  delay is there because pre-roll ads report their own ids.
 * If the player API cannot load, a plain embed is used instead.
 * The player iframe is sandboxed so it cannot open new tabs or navigate the
   page. The title, logo and "Watch on YouTube" links are still there, they just

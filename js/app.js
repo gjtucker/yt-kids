@@ -230,27 +230,36 @@
   }
 
   /* Approved videos to queue after `v`: same channel first, then the rest. */
+  /* Approved videos to play after `v`: same channel first, then the rest. */
   function upNextFor(v) {
     var all = visibleVideos().filter(function (o) { return o.youtubeId !== v.youtubeId; });
     var same = all.filter(function (o) { return o.channelName === v.channelName; });
     var rest = all.filter(function (o) { return o.channelName !== v.channelName; });
-    return same.concat(rest).slice(0, 25);
+    return same.concat(rest).slice(0, 50);
   }
 
   function watchInfo(v) {
     return '<h1>' + esc(v.title) + '</h1><div class="muted">' + esc(v.channelName) + '</div>';
   }
 
-  function upNextSection(v) {
-    var next = upNextFor(v);
+  /* The "Up next" row always shows the remaining queue, in play order. */
+  function queuedVideos() {
+    return (session.playQueue || []).map(findVideo).filter(function (o) { return o && !o.hidden; });
+  }
+
+  function upNextSection() {
+    var next = queuedVideos();
     if (!next.length) return '';
-    return '<h2>Up next</h2><div class="row">' + next.map(videoCard).join('') + '</div>';
+    return '<h2>Up next</h2><div class="grid up-next">' + next.map(videoCard).join('') + '</div>';
   }
 
   function viewWatch(id) {
     var v = findVideo(id);
     if (!v || v.hidden) {
       return kidHeader('videos') + '<main class="page"><div class="empty"><h2>That video isn’t in the library</h2><a class="btn btn-primary" href="#/videos">Back to videos</a></div></main>';
+    }
+    if (!session.playQueue || !session.playQueue.length || session.currentVideoId !== id) {
+      session.playQueue = upNextFor(v).map(function (o) { return o.youtubeId; });
     }
     return '' +
       '<div class="watch">' +
@@ -261,18 +270,21 @@
         '</div>' +
         '<div class="player"><div id="yt-player"></div></div>' +
         '<div class="watch-info">' + watchInfo(v) + '</div>' +
-        '<section class="more">' + upNextSection(v) + '</section>' +
+        '<section class="more">' + upNextSection() + '</section>' +
       '</div>';
   }
 
   /* ---------------- player (YouTube IFrame API) ----------------
-     The official API lets us react to player state: queue approved videos as
-     a playlist, replace YouTube's end screen with our own, and stop playback
-     if an unapproved video starts from the player's own overlays. */
+     The official API lets us react to player state. The app keeps its own
+     queue of approved videos and advances the same player with
+     loadVideoById, so "Up next" is always exactly what plays next. It also
+     replaces YouTube's end screen with our own and stops playback if an
+     unapproved video keeps playing (e.g. picked from the player's overlay). */
 
   var player = null;
   var playerApiPromise = null;
   var mountToken = 0;
+  var UNKNOWN_GRACE_MS = 30000; // pre-roll/mid-roll ads report their own ids; give them time to pass
 
   function loadPlayerApi() {
     if (window.YT && window.YT.Player) return Promise.resolve();
@@ -290,6 +302,7 @@
   }
 
   function destroyPlayer() {
+    clearTimeout(session.unknownTimer); session.unknownTimer = null;
     if (player) {
       try { player.destroy(); } catch (e) { /* ignore */ }
       player = null;
@@ -299,9 +312,8 @@
   /* Build the player iframe ourselves so we control its attributes. Without
      allow-popups / allow-top-navigation in `sandbox`, the links inside the
      player (title, logo, "Watch on YouTube") cannot open youtube.com. */
-  function buildPlayerIframe(v, queue, withApi) {
+  function buildPlayerIframe(v, withApi) {
     var params = ['rel=0', 'playsinline=1', 'iv_load_policy=3'];
-    if (queue.length) params.push('playlist=' + queue.join(','));
     if (withApi) {
       params.push('enablejsapi=1');
       if (/^https?:$/.test(location.protocol)) params.push('origin=' + encodeURIComponent(location.origin));
@@ -324,21 +336,37 @@
 
   function mountPlayer(v) {
     var token = ++mountToken;
-    var queue = upNextFor(v).map(function (o) { return o.youtubeId; });
     session.currentVideoId = v.youtubeId;
-    session.queue = queue;
-
     loadPlayerApi().then(function () {
       var host = root.querySelector('#yt-player');
       if (token !== mountToken || !host) return; // navigated away
-      var iframe = buildPlayerIframe(v, queue, true);
+      var iframe = buildPlayerIframe(v, true);
       host.replaceWith(iframe);
       player = new window.YT.Player(iframe, { events: { onStateChange: onPlayerStateChange } });
     }).catch(function () {
-      // No API (offline, blocked): plain embed without playlist/end-screen handling.
+      // No API (offline, blocked): plain embed without queue/end-screen handling.
       var host = root.querySelector('#yt-player');
-      if (token === mountToken && host) host.replaceWith(buildPlayerIframe(v, queue, false));
+      if (token === mountToken && host) host.replaceWith(buildPlayerIframe(v, false));
     });
+  }
+
+  /* Update title, URL and the Up-next row for the video now playing. */
+  function showNowPlaying(v) {
+    session.currentVideoId = v.youtubeId;
+    session.playQueue = (session.playQueue || []).filter(function (id) { return id !== v.youtubeId; });
+    history.replaceState(null, '', location.pathname + location.search + '#/watch/' + v.youtubeId);
+    var info = root.querySelector('.watch-info'); if (info) info.innerHTML = watchInfo(v);
+    var bar = root.querySelector('.watch-title-sm'); if (bar) bar.textContent = v.title;
+    var more = root.querySelector('.more'); if (more) more.innerHTML = upNextSection();
+  }
+
+  /* Switch the running player to another approved video without rebuilding
+     the iframe (keeps playback going on iOS, which needs a tap per iframe). */
+  function playInPlace(v) {
+    if (!player || !player.loadVideoById) return false;
+    showNowPlaying(v);
+    player.loadVideoById(v.youtubeId);
+    return true;
   }
 
   function onPlayerStateChange(e) {
@@ -347,27 +375,30 @@
     if (e.data === states.PLAYING) {
       var data = player.getVideoData ? player.getVideoData() : null;
       var id = data && data.video_id;
-      if (!id || id === session.currentVideoId) return;
+      if (!id) return;
       var v = findVideo(id);
-      if (!v || v.hidden) {
-        // Started from YouTube's own overlay, not from the approved queue.
-        destroyPlayer();
-        showPlayerScreen('<div class="end-title">That video isn’t in your library</div>');
+      if (v && !v.hidden) {
+        clearTimeout(session.unknownTimer); session.unknownTimer = null;
+        if (id !== session.currentVideoId) showNowPlaying(v); // e.g. picked from the overlay
         return;
       }
-      session.currentVideoId = id;
-      history.replaceState(null, '', location.pathname + location.search + '#/watch/' + id);
-      var info = root.querySelector('.watch-info'); if (info) info.innerHTML = watchInfo(v);
-      var bar = root.querySelector('.watch-title-sm'); if (bar) bar.textContent = v.title;
-      var more = root.querySelector('.more'); if (more) more.innerHTML = upNextSection(v);
-    } else if (e.data === states.ENDED) {
-      var q = session.queue || [];
-      var isLast = !q.length || q[q.length - 1] === session.currentVideoId;
-      if (isLast) {
-        destroyPlayer();
-        showPlayerScreen('<div class="end-title">All done!</div>');
+      // An unknown id is usually an ad; only act if it is still playing later.
+      if (!session.unknownTimer) {
+        session.unknownTimer = setTimeout(function () {
+          session.unknownTimer = null;
+          if (!player || !player.getVideoData) return;
+          var now = player.getVideoData().video_id;
+          var known = findVideo(now);
+          if (!now || (known && !known.hidden)) return;
+          destroyPlayer();
+          showPlayerScreen('<div class="end-title">That video isn’t in your library</div>');
+        }, (window.KIDTUBE_TEST && window.KIDTUBE_TEST.unknownGraceMs) || UNKNOWN_GRACE_MS);
       }
-      // Otherwise the player moves on to the next approved video by itself.
+    } else if (e.data === states.ENDED) {
+      var next = queuedVideos()[0];
+      if (next && playInPlace(next)) return;
+      destroyPlayer();
+      showPlayerScreen('<div class="end-title">All done!</div>');
     }
   }
 
@@ -906,6 +937,11 @@
   /* ---------------- events ---------------- */
 
   root.addEventListener('click', function (e) {
+    var card = e.target.closest('a.card');
+    if (card && route().name === 'watch' && player && player.loadVideoById) {
+      var target = findVideo((card.getAttribute('href') || '').split('/').pop());
+      if (target && !target.hidden) { e.preventDefault(); playInPlace(target); window.scrollTo(0, 0); return; }
+    }
     var submit = e.target.closest('button[type="submit"][name="mode"]');
     if (submit) session.lastSubmit = submit.value; // fallback for browsers without event.submitter
     var el = e.target.closest('[data-action]');

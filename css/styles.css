@@ -255,3 +255,8 @@ select {
 .share-link { width: 100%; font: inherit; font-size: 0.85rem; margin-top: 12px; padding: 10px; border: 2px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--muted); resize: none; word-break: break-all; }
 .share-list { margin: 0 0 16px; padding-left: 20px; }
 .share-list li { margin: 4px 0; }
+
+/* Up next on the watch page: a grid, not a snap-scrolling row (no mis-taps). */
+.more { padding: 0 16px 16px; }
+.more .up-next { gap: 12px; }
+@media (min-width: 900px) { .more .up-next { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); } }

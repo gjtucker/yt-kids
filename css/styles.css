@@ -252,3 +252,6 @@ select {
   font: inherit; font-size: 1rem; min-height: var(--tap); padding: 0 12px; border-radius: 12px;
   border: 2px solid var(--line); background: var(--surface); color: var(--text);
 }
+.share-link { width: 100%; font: inherit; font-size: 0.85rem; margin-top: 12px; padding: 10px; border: 2px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--muted); resize: none; word-break: break-all; }
+.share-list { margin: 0 0 16px; padding-left: 20px; }
+.share-list li { margin: 4px 0; }

@@ -405,6 +405,74 @@
     );
   }
 
+  /* ---------------- import from a share link ---------------- */
+
+  function viewImport(payload) {
+    var head = '<header class="topbar parent-bar"><div class="brand"><span class="brand-icon" aria-hidden="true">📥</span>Shared library</div></header>';
+    var imp = session.import;
+    if (!imp || imp.key !== payload) {
+      session.import = { key: payload, data: null, error: null };
+      STORE.decodeShare(payload).then(function (data) {
+        if (!data || !Array.isArray(data.sources) || !Array.isArray(data.videos)) throw new Error('This is not a Kid Tube share link.');
+        session.import.data = data; render();
+      }).catch(function (err) { session.import.error = err.message; render(); });
+      return head + '<main class="page narrow"><div class="pin-box"><h1>Opening link…</h1></div></main>';
+    }
+    if (imp.error) {
+      return head + '<main class="page narrow"><div class="pin-box"><h1>Couldn’t open this link</h1><p class="error">' + esc(imp.error) + '</p>' +
+        '<a class="btn btn-primary" href="#/videos">Back to videos</a></div></main>';
+    }
+    if (!state.settings.parentPinHash) return head + viewPinSetup();
+    var data = imp.data;
+    var videos = data.sources.filter(function (x) { return x.type === 'video'; }).length;
+    var channels = data.sources.filter(function (x) { return x.type === 'channel'; }).length;
+    var titles = data.sources.slice(0, 8).map(function (x) { return '<li>' + esc(x.title) + (x.type === 'channel' ? ' <span class="badge">Channel</span>' : '') + '</li>'; }).join('');
+    if (data.sources.length > 8) titles += '<li class="muted">…and ' + (data.sources.length - 8) + ' more</li>';
+    return head + '<main class="page narrow"><div class="pin-box">' +
+      '<h1>Add shared videos?</h1>' +
+      '<p class="muted">This link contains ' + videos + (videos === 1 ? ' video' : ' videos') + ' and ' + channels + (channels === 1 ? ' channel' : ' channels') + (data.settings && data.settings.apiKey ? ', plus an API key' : '') + '.</p>' +
+      (titles ? '<ul class="share-list">' + titles + '</ul>' : '') +
+      '<form data-form="import-link">' +
+        (session.unlocked ? '' : '<label>Parent PIN<input type="password" inputmode="numeric" pattern="[0-9]*" name="pin" required autocomplete="current-password" autofocus></label>') +
+        (session.pinError ? '<p class="error">' + esc(session.pinError) + '</p>' : '') +
+        '<div class="btn-row">' +
+          '<button class="btn btn-primary" type="submit" name="mode" value="merge">Add to my library</button>' +
+          (state.sources.length ? '<button class="btn btn-danger" type="submit" name="mode" value="replace">Replace my library</button>' : '') +
+        '</div>' +
+      '</form>' +
+      '<p class="center" style="margin-bottom:0"><a class="btn btn-ghost" href="#/videos">Cancel</a></p>' +
+    '</div></main>';
+  }
+
+  function applyImport(data, replace) {
+    var added = STORE.importJson(state, data, replace);
+    persist();
+    session.unlocked = true;
+    session.import = null;
+    setStatus('ok', replace ? 'Library replaced with ' + state.sources.length + ' items.' : 'Added ' + added + ' new ' + (added === 1 ? 'item' : 'items') + '.', 'add');
+    go('#/parent');
+  }
+
+  function shareLink() {
+    session.busy = true;
+    setStatus('info', 'Making link…', 'share');
+    STORE.encodeShare(STORE.sharePayload(state, session.shareApiKey)).then(function (payload) {
+      var base = location.href.split('#')[0];
+      session.shareLink = base + '#/import/' + payload;
+      session.busy = false;
+      session.status = null;
+      if (navigator.share) {
+        return navigator.share({ title: 'Kid Tube library', url: session.shareLink }).then(function () {
+          setStatus('ok', 'Shared. Open the link on the other device.', 'share');
+        }, function () { render(); });
+      }
+      setStatus('ok', 'Link ready. Copy it and open it on the other device.', 'share');
+    }).catch(function (err) {
+      session.busy = false;
+      setStatus('error', 'Could not make a link: ' + err.message, 'share');
+    });
+  }
+
   /* ---------------- parent mode views ---------------- */
 
   function viewParent() {
@@ -517,6 +585,19 @@
       '</section>' +
 
       '<section class="panel">' +
+        '<h2>Send to another device</h2>' +
+        '<p class="muted small">Make a link that carries your whole library. AirDrop or message it to the other device, open it there, and enter the PIN to add everything. Your PIN is not included.</p>' +
+        '<label class="check"><input type="checkbox" name="shareApiKey" data-role="share-api-key"' + (session.shareApiKey ? ' checked' : '') + (state.settings.apiKey ? '' : ' disabled') + '> Include my API key <span class="muted small">(lets the other device refresh channels)</span></label>' +
+        '<div class="btn-row">' +
+          '<button class="btn btn-primary" data-action="share-link"' + (state.sources.length ? '' : ' disabled') + '>' + (navigator.share ? 'Share link…' : 'Make link') + '</button>' +
+          (session.shareLink ? '<button class="btn" data-action="copy-share-link">Copy link</button>' : '') +
+        '</div>' +
+        (session.shareLink ? '<textarea class="share-link" readonly rows="3" data-role="share-link" aria-label="Share link">' + esc(session.shareLink) + '</textarea>' +
+          '<p class="muted small">' + session.shareLink.length.toLocaleString() + ' characters. Long links are fine in AirDrop, Messages, email and Notes.</p>' : '') +
+        statusHtml('share') +
+      '</section>' +
+
+      '<section class="panel">' +
         '<div class="panel-head"><h2>Approved library</h2>' +
           (channelCount ? '<button class="btn btn-small" data-action="refresh-all"' + (session.busy ? ' disabled' : '') + '>Refresh all channels</button>' : '') +
         '</div>' +
@@ -546,8 +627,8 @@
       '</section>' +
 
       '<section class="panel">' +
-        '<h2>Backup &amp; move to another device</h2>' +
-        '<p class="muted small">Export your library as a JSON file, then import it on another phone, tablet or computer. Your PIN is not included.</p>' +
+        '<h2>Backup file</h2>' +
+        '<p class="muted small">Or export your library as a JSON file and import it elsewhere.</p>' +
         '<div class="btn-row">' +
           '<button class="btn" data-action="export">Download backup</button>' +
           '<button class="btn" data-action="copy-export">Copy to clipboard</button>' +
@@ -574,6 +655,7 @@
     switch (r.name) {
       case 'parent': html = viewParent(); mode = 'parent'; break;
       case 'unlock': html = viewUnlock(); mode = 'parent'; break;
+      case 'import': html = viewImport(r.arg); mode = 'parent'; break;
       case 'watch': html = isLocked() ? viewLocked() : viewWatch(r.arg); mode = isLocked() ? 'kid' : 'watch'; break;
       case 'channels': html = isLocked() ? viewLocked() : viewChannels(); break;
       case 'channel': html = isLocked() ? viewLocked() : viewVideos(r.arg); break;
@@ -782,6 +864,8 @@
   /* ---------------- events ---------------- */
 
   root.addEventListener('click', function (e) {
+    var submit = e.target.closest('button[type="submit"][name="mode"]');
+    if (submit) session.lastSubmit = submit.value; // fallback for browsers without event.submitter
     var el = e.target.closest('[data-action]');
     if (!el) return;
     var action = el.dataset.action;
@@ -789,10 +873,17 @@
     switch (action) {
       case 'back': go(session.lastList || '#/videos'); break;
       case 'replay': render(); break;
+      case 'share-link': if (!session.busy) shareLink(); break;
+      case 'copy-share-link':
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(session.shareLink).then(function () { setStatus('ok', 'Link copied.', 'share'); },
+            function () { setStatus('error', 'Could not copy. Select the link text and copy it by hand.', 'share'); });
+        } else setStatus('error', 'Could not copy. Select the link text and copy it by hand.', 'share');
+        break;
       case 'start-watch': startWatchTime(); setStatus('ok', 'Unlocked for ' + state.settings.watchMinutes + ' minutes.', 'watch'); break;
       case 'end-watch': endWatchTime(); setStatus('ok', 'Locked.', 'watch'); break;
       case 'lock':
-        session.unlocked = false; session.status = null; session.filter = '';
+        session.unlocked = false; session.status = null; session.filter = ''; session.shareLink = '';
         go('#/videos');
         break;
       case 'remove-source': removeSource(el.dataset.id); break;
@@ -837,6 +928,20 @@
           else { session.unlocked = true; render(); }
         });
         break;
+      case 'import-link': {
+        var mode = (e.submitter && e.submitter.value) || session.lastSubmit || 'merge';
+        var data = session.import && session.import.data;
+        if (!data) return;
+        if (mode === 'replace' && !confirm('Replace everything in this library with the shared one?')) return;
+        var check = session.unlocked ? Promise.resolve(true) : STORE.hashPin(form.pin.value.trim()).then(function (h) { return h === state.settings.parentPinHash; });
+        check.then(function (ok) {
+          if (!ok) { session.pinError = 'Wrong PIN, try again.'; render(); return; }
+          session.pinError = '';
+          try { applyImport(data, mode === 'replace'); }
+          catch (err) { session.import.error = err.message; render(); }
+        });
+        break;
+      }
       case 'unlock':
         STORE.hashPin(form.pin.value.trim()).then(function (hash) {
           if (hash !== state.settings.parentPinHash) { session.pinError = 'Wrong PIN, try again.'; render(); return; }
@@ -887,6 +992,7 @@
   }, true);
 
   root.addEventListener('change', function (e) {
+    if (e.target.dataset.role === 'share-api-key') { session.shareApiKey = e.target.checked; session.shareLink = ''; render(); }
     if (e.target.dataset.role === 'import' && e.target.files[0]) importFile(e.target.files[0]);
   });
 
@@ -894,7 +1000,7 @@
     session.pinError = '';
     var name = route().name;
     if (name === 'videos' || name === 'channels' || name === 'channel') session.lastList = location.hash;
-    if (name !== 'parent') session.status = null;
+    if (name !== 'parent' && name !== 'import') session.status = null;
     if (route().name !== 'videos' && route().name !== 'channel') session.filter = '';
     render();
     window.scrollTo(0, 0);

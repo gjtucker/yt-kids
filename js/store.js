@@ -82,11 +82,12 @@
   }
 
   /* Merges an exported file into `state`. PIN is never imported. */
-  function importJson(state, text) {
-    var data = JSON.parse(text);
+  function importJson(state, textOrData, replace) {
+    var data = typeof textOrData === 'string' ? JSON.parse(textOrData) : textOrData;
     if (!data || !Array.isArray(data.sources) || !Array.isArray(data.videos)) {
       throw new Error('That file does not look like a Kid Tube export.');
     }
+    if (replace) { state.sources = []; state.videos = []; }
     var haveSource = {};
     state.sources.forEach(function (s) { haveSource[s.id] = true; });
     var haveVideo = {};
@@ -111,7 +112,77 @@
     return added;
   }
 
+  /* ---------- share links ----------
+     The library is packed into the URL fragment: deflate-compressed JSON in
+     base64url, prefixed "z." (or "j." for plain JSON where compression is
+     unavailable). Nothing leaves the device unless the user shares the link. */
+
+  function bytesToBase64Url(bytes) {
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function base64UrlToBytes(str) {
+    var b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    var bin = atob(b64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+
+  function sharePayload(state, includeApiKey) {
+    var settings = {
+      childName: state.settings.childName,
+      blockYouTubeLinks: state.settings.blockYouTubeLinks,
+      useYouTubeSignIn: state.settings.useYouTubeSignIn,
+      watchMinutes: state.settings.watchMinutes
+    };
+    if (includeApiKey && state.settings.apiKey) settings.apiKey = state.settings.apiKey;
+    return {
+      app: 'kidtube',
+      version: 1,
+      settings: settings,
+      sources: state.sources,
+      videos: state.videos.map(function (v) {
+        var copy = Object.assign({}, v);
+        // The default thumbnail is derived from the ID; drop it to keep links short.
+        if (copy.thumbnail === 'https://i.ytimg.com/vi/' + v.youtubeId + '/hqdefault.jpg') delete copy.thumbnail;
+        return copy;
+      })
+    };
+  }
+
+  function encodeShare(obj) {
+    var json = JSON.stringify(obj);
+    if (typeof CompressionStream === 'undefined') {
+      return Promise.resolve('j.' + bytesToBase64Url(new TextEncoder().encode(json)));
+    }
+    var stream = new Blob([json]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+    return new Response(stream).arrayBuffer().then(function (buf) {
+      return 'z.' + bytesToBase64Url(new Uint8Array(buf));
+    });
+  }
+
+  function decodeShare(str) {
+    var kind = str.slice(0, 2), body = str.slice(2);
+    var bytes;
+    try { bytes = base64UrlToBytes(body); } catch (e) { return Promise.reject(new Error('This link is damaged or incomplete.')); }
+    if (kind === 'j.') {
+      return Promise.resolve().then(function () { return JSON.parse(new TextDecoder().decode(bytes)); });
+    }
+    if (kind !== 'z.') return Promise.reject(new Error('This is not a Kid Tube share link.'));
+    if (typeof DecompressionStream === 'undefined') return Promise.reject(new Error('This browser is too old to open share links. Please update it.'));
+    var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return new Response(stream).text().then(function (json) { return JSON.parse(json); })
+      .catch(function () { throw new Error('This link is damaged or incomplete.'); });
+  }
+
   window.STORE = {
+    sharePayload: sharePayload,
+    encodeShare: encodeShare,
+    decodeShare: decodeShare,
     load: load,
     save: save,
     clear: clear,

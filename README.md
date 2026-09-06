@@ -130,10 +130,27 @@ refreshing a channel costs a handful of units.
 
 ## Moving the library to another device
 
-Parent mode → **Backup & move to another device** → *Download backup* (or
-*Copy to clipboard*). On the other device, open Parent mode, set a PIN, and
-use *Import backup*. Imports merge into the existing library; the PIN is
-never exported.
+There is no cloud sync (by design), but you can carry the library over in a
+link:
+
+1. On the device where you curate (say, your phone), open Parent mode →
+   **Send to another device** → *Share link…*. The whole library is
+   compressed into the link itself; nothing is uploaded anywhere. On iPhone
+   this opens the share sheet, so you can AirDrop it straight to the iPad or
+   send it in Messages/email/Notes.
+2. Open the link on the other device. It shows what the link contains and
+   asks for the parent PIN (or lets you create one on a fresh device), then
+   **Add to my library** merges the items in, or **Replace my library**
+   swaps everything out.
+
+Tick *Include my API key* before sharing if you want the other device to be
+able to refresh channels itself. Otherwise just re-share after you refresh.
+The PIN is never included. A typical library of a few dozen videos makes a
+link of a few thousand characters, which AirDrop, Messages and email handle
+fine; QR codes do not.
+
+**Backup file** (Parent mode → *Download backup*) works the same way with a
+JSON file instead of a link.
 
 ## Forgot the PIN?
 

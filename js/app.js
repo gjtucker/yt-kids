@@ -93,12 +93,14 @@
   }
 
   function startWatchTime() {
-    state.watch = { until: Date.now() + (state.settings.watchMinutes || 15) * 60000 };
+    state.watch = state.watch || {};
+    state.watch.until = Date.now() + (state.settings.watchMinutes || 15) * 60000;
     persist();
   }
 
   function endWatchTime() {
-    state.watch = { until: 0 };
+    state.watch = state.watch || {};
+    state.watch.until = 0;
     persist();
   }
 
@@ -114,10 +116,42 @@
     return '<a class="timer' + (left < 60000 ? ' low' : '') + '" href="#/unlock" data-role="timer" aria-label="Watch time left">⏱ ' + formatLeft(left) + '</a>';
   }
 
+  /* When the timer interrupts a video, remember it so the next unlock
+     resumes where the child left off. */
+  function saveResumePoint() {
+    var pos = session.lastPos;
+    if (route().name === 'watch' && pos && pos.youtubeId === session.currentVideoId && findVideo(pos.youtubeId)) {
+      state.watch.resume = { youtubeId: pos.youtubeId, seconds: Math.max(0, Math.floor(pos.seconds)), queue: (session.playQueue || []).slice(), savedAt: new Date().toISOString() };
+    } else {
+      delete state.watch.resume;
+    }
+    persist();
+  }
+
+  function resumeVideo() {
+    var r = state.watch && state.watch.resume;
+    var v = r && findVideo(r.youtubeId);
+    return v && !v.hidden ? v : null;
+  }
+
+  /* Where to send the child after an unlock: the interrupted video, or the list. */
+  function afterUnlockHash() {
+    var v = resumeVideo();
+    if (!v) return session.lastList || '#/videos';
+    session.resume = state.watch.resume;
+    delete state.watch.resume;
+    persist();
+    return '#/watch/' + v.youtubeId;
+  }
+
   function tick() {
     var locked = isLocked();
+    if (!locked && route().name === 'watch' && player && player.getCurrentTime) {
+      try { session.lastPos = { youtubeId: session.currentVideoId, seconds: player.getCurrentTime() || 0 }; } catch (e) { /* ignore */ }
+    }
     if (locked !== session.wasLocked) {
       session.wasLocked = locked;
+      if (locked) saveResumePoint();
       var name = route().name;
       if (name !== 'parent' && name !== 'unlock') render();
       return;
@@ -258,7 +292,11 @@
     if (!v || v.hidden) {
       return kidHeader('videos') + '<main class="page"><div class="empty"><h2>That video isn’t in the library</h2><a class="btn btn-primary" href="#/videos">Back to videos</a></div></main>';
     }
-    if (!session.playQueue || !session.playQueue.length || session.currentVideoId !== id) {
+    if (session.resume && session.resume.youtubeId === id) {
+      session.playQueue = (session.resume.queue || []).filter(function (q) { var o = findVideo(q); return o && !o.hidden && q !== id; });
+      session.startAt = session.resume.seconds || 0;
+      session.resume = null;
+    } else if (!session.playQueue || !session.playQueue.length || session.currentVideoId !== id) {
       session.playQueue = upNextFor(v).map(function (o) { return o.youtubeId; });
     }
     return '' +
@@ -314,6 +352,8 @@
      player (title, logo, "Watch on YouTube") cannot open youtube.com. */
   function buildPlayerIframe(v, withApi) {
     var params = ['rel=0', 'playsinline=1', 'iv_load_policy=3'];
+    if (session.startAt > 0 && session.currentVideoId === v.youtubeId) params.push('start=' + Math.floor(session.startAt));
+    session.startAt = 0;
     if (withApi) {
       params.push('enablejsapi=1');
       if (/^https?:$/.test(location.protocol)) params.push('origin=' + encodeURIComponent(location.origin));
@@ -419,6 +459,7 @@
       '<h2>' + (expired ? 'Time’s up for now!' : 'Ready to watch?') + '</h2>' +
       '<p>A grown-up can unlock ' + (state.settings.watchMinutes || 15) + ' minutes of videos.</p>' +
       '<a class="btn btn-primary btn-big" href="#/unlock">Ask a grown-up to unlock</a>' +
+      (resumeVideo() ? '<div class="resume-note"><img src="' + esc(YTH.thumbnailUrl(resumeVideo().youtubeId, 'default')) + '" alt=""><div><div class="muted small">Next time, continue watching</div><div class="resume-title">' + esc(resumeVideo().title) + '</div></div></div>' : '') +
     '</div></main>';
   }
 
@@ -962,7 +1003,7 @@
       case 'end-watch': endWatchTime(); setStatus('ok', 'Locked.', 'watch'); break;
       case 'lock':
         session.unlocked = false; session.status = null; session.filter = ''; session.shareLink = '';
-        go('#/videos');
+        go(isLocked() ? '#/videos' : afterUnlockHash());
         break;
       case 'remove-source': removeSource(el.dataset.id); break;
       case 'refresh-source': refreshSources([findSource(el.dataset.id)].filter(Boolean)); break;
@@ -1003,7 +1044,7 @@
     switch (form.dataset.form) {
       case 'pin-setup':
         setPin(form, function () {
-          if (route().name === 'unlock') { startWatchTime(); go(session.lastList || '#/videos'); }
+          if (route().name === 'unlock') { startWatchTime(); go(afterUnlockHash()); }
           else { session.unlocked = true; render(); }
         });
         break;
@@ -1026,7 +1067,7 @@
           if (hash !== state.settings.parentPinHash) { session.pinError = 'Wrong PIN, try again.'; render(); return; }
           session.pinError = '';
           startWatchTime();
-          go(session.lastList || '#/videos');
+          go(afterUnlockHash());
         });
         break;
       case 'watch-time':

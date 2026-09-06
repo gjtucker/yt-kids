@@ -260,3 +260,6 @@ select {
 .more { padding: 0 16px 16px; }
 .more .up-next { gap: 12px; }
 @media (min-width: 900px) { .more .up-next { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); } }
+.resume-note { display: flex; align-items: center; gap: 12px; margin: 28px auto 0; padding: 12px; max-width: 360px; background: var(--surface); border-radius: 14px; box-shadow: var(--shadow); text-align: left; }
+.resume-note img { width: 72px; aspect-ratio: 16/9; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+.resume-title { font-weight: 700; line-height: 1.25; }

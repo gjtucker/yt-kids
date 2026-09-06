@@ -8,14 +8,18 @@ No search box, no Shorts, no comments, no trending feed.
 * **Static site** – plain HTML/CSS/JS, no build step, no backend, no database.
 * **Everything stays in the browser** – the library, settings and parent PIN
   live in `localStorage` on that device.
-* **Works on iPhone/iPad and desktop** – big tap targets, responsive grid, and
-  it can be added to the Home Screen as a web app.
+* **Looks and feels like YouTube** – the same layout language (chip row,
+  card grid with channel avatars, watch page with an up-next sidebar on
+  desktop, bottom tab bar on phones), in light and dark mode, but with only
+  the curated library and none of the search, Shorts, comments or feed.
+* **Works on iPhone/iPad and desktop** – it can be added to the Home Screen
+  as a web app.
 
 ## How it works
 
 | Mode | What you see |
 | --- | --- |
-| **Kid mode** (default) | A grid of approved videos with thumbnail, title and channel. Tabs for *Videos* and *Channels*. Tapping a card plays the video in an embedded player. Once there are more than a few videos, a "Find in my videos" box filters the approved library only. |
+| **Kid mode** (default) | A YouTube-style home page: a chip row to filter by channel, a grid of approved videos with thumbnail, title and channel avatar, and *Home* / *Channels* tabs. Tapping a card plays the video in an embedded player with an "Up next" list. Once there are more than a few videos, a "Find in my videos" box filters the approved library only. |
 | **Parent mode** (🔒 Parent, PIN-protected) | Paste a YouTube link to add a video or channel, see and remove approved content, hide individual videos from a channel, change the library name/PIN, export/import a JSON backup. |
 
 The PIN only prevents accidental taps; it is not real security. A reload

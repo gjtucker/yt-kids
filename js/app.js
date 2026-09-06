@@ -113,7 +113,7 @@
   function timerChip() {
     if (!limitEnabled()) return '';
     var left = msLeft();
-    return '<a class="timer' + (left < 60000 ? ' low' : '') + '" href="#/unlock" data-role="timer" aria-label="Watch time left">⏱ ' + formatLeft(left) + '</a>';
+    return '<a class="timer' + (left < 60000 ? ' low' : '') + '" href="#/unlock" aria-label="Watch time left">' + icon('timer') + '<span data-role="timer">' + formatLeft(left) + '</span></a>';
   }
 
   /* When the timer interrupts a video, remember it so the next unlock
@@ -160,8 +160,8 @@
       var left = msLeft();
       var chips = root.querySelectorAll('[data-role="timer"]');
       for (var i = 0; i < chips.length; i++) {
-        chips[i].textContent = '⏱ ' + formatLeft(left);
-        chips[i].classList.toggle('low', left < 60000);
+        chips[i].textContent = formatLeft(left);
+        chips[i].parentNode.classList.toggle('low', left < 60000);
       }
     }
   }
@@ -180,18 +180,57 @@
 
   /* ---------------- kid mode views ---------------- */
 
+  var ICONS = {
+    home: 'M12 4.33l7 6.12V20h-4v-6H9v6H5v-9.55l7-6.12M12 3L4 10v11h7v-6h2v6h7V10l-8-7z',
+    channels: 'M20 8H4V6h16v2zm-2-6H6v2h12V2zm4 10v8c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2v-8c0-1.1.9-2 2-2h16c1.1 0 2 .9 2 2zm-6 4l-6-3.27v6.53L16 16z',
+    lock: 'M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z',
+    back: 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z',
+    search: 'M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z',
+    timer: 'M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A8.962 8.962 0 0 0 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9a8.994 8.994 0 0 0 7.03-14.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z',
+    replay: 'M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z'
+  };
+
+  function icon(name) {
+    return '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="' + ICONS[name] + '"/></svg>';
+  }
+
+  function logoHtml() {
+    return '<span class="logo" aria-hidden="true"><svg viewBox="0 0 28 20"><rect width="28" height="20" rx="6" fill="#f00"/><path d="M11 5.5v9l7.5-4.5z" fill="#fff"/></svg></span>';
+  }
+
+  function channelThumb(name) {
+    for (var i = 0; i < state.sources.length; i++) {
+      var s = state.sources[i];
+      if (s.type === 'channel' && s.title === name && s.thumbnail) return s.thumbnail;
+    }
+    return '';
+  }
+
+  /* YouTube-style round avatar: the channel picture when known, else a
+     coloured circle with the channel's initial. */
+  function avatarHtml(name) {
+    var src = channelThumb(name);
+    if (src) return '<span class="avatar"><img src="' + esc(src) + '" alt="" loading="lazy"></span>';
+    var h = 0;
+    for (var i = 0; i < (name || '').length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+    var initial = (name || '').trim().charAt(0).toUpperCase() || '▶';
+    return '<span class="avatar" style="background:hsl(' + (h % 360) + ',45%,42%)">' + esc(initial) + '</span>';
+  }
+
   function kidHeader(active) {
     var name = state.settings.childName || 'My Videos';
     return '' +
       '<header class="topbar">' +
-        '<a class="brand" href="#/videos"><span class="brand-icon" aria-hidden="true">▶</span>' + esc(name) + '</a>' +
+        '<a class="brand" href="#/videos">' + logoHtml() + '<span class="brand-name">' + esc(name) + '</span></a>' +
         (isLocked() ? '<span class="tabs"></span>' :
           '<nav class="tabs" aria-label="Sections">' +
-            '<a href="#/videos" class="' + (active === 'videos' ? 'active' : '') + '">Videos</a>' +
-            '<a href="#/channels" class="' + (active === 'channels' ? 'active' : '') + '">Channels</a>' +
+            '<a href="#/videos" class="' + (active === 'videos' ? 'active' : '') + '">' + icon('home') + '<span>Home</span></a>' +
+            '<a href="#/channels" class="' + (active === 'channels' ? 'active' : '') + '">' + icon('channels') + '<span>Channels</span></a>' +
           '</nav>') +
-        (isLocked() ? '' : timerChip()) +
-        '<a class="parent-link" href="#/parent" aria-label="Parent mode"><span aria-hidden="true">🔒</span><span class="parent-link-text"> Parent</span></a>' +
+        '<div class="topbar-right">' +
+          (isLocked() ? '' : timerChip()) +
+          '<a class="parent-link" href="#/parent" aria-label="Parent mode">' + icon('lock') + '<span class="parent-link-text">Parent</span></a>' +
+        '</div>' +
       '</header>';
   }
 
@@ -200,16 +239,30 @@
       '<a class="card" href="#/watch/' + esc(v.youtubeId) + '">' +
         '<div class="thumb"><img src="' + esc(v.thumbnail || YTH.thumbnailUrl(v.youtubeId)) + '" alt="" loading="lazy"></div>' +
         '<div class="card-body">' +
-          '<div class="card-title">' + esc(v.title) + '</div>' +
-          '<div class="card-channel">' + esc(v.channelName) + '</div>' +
+          avatarHtml(v.channelName) +
+          '<div class="card-text">' +
+            '<div class="card-title">' + esc(v.title) + '</div>' +
+            '<div class="card-channel">' + esc(v.channelName) + '</div>' +
+          '</div>' +
         '</div>' +
       '</a>';
+  }
+
+  /* YouTube-style chip row: All + one chip per channel. */
+  function chipRow(active) {
+    var groups = channelGroups();
+    if (groups.length < 2) return '';
+    return '<div class="chips-wrap"><div class="chips">' +
+      '<a class="chip' + (!active ? ' active' : '') + '" href="#/videos">All</a>' +
+      groups.map(function (g) {
+        return '<a class="chip' + (active === g.name ? ' active' : '') + '" href="#/channel/' + encodeURIComponent(g.name) + '">' + esc(g.name) + '</a>';
+      }).join('') + '</div></div>';
   }
 
   function emptyLibrary() {
     return '' +
       '<div class="empty">' +
-        '<div class="empty-icon" aria-hidden="true">📺</div>' +
+        '<div class="empty-icon" aria-hidden="true">' + logoHtml() + '</div>' +
         '<h2>No videos yet</h2>' +
         '<p>Ask a grown-up to add some videos in Parent mode.</p>' +
         '<a class="btn btn-primary" href="#/parent">Open Parent mode</a>' +
@@ -224,17 +277,19 @@
       return (v.title + ' ' + v.channelName).toLowerCase().indexOf(q) !== -1;
     }) : videos;
 
-    var html = kidHeader(filterChannel ? 'channels' : 'videos') + '<main class="page">';
+    var html = kidHeader('videos');
     if (!state.videos.length) {
-      html += emptyLibrary();
+      html += '<main class="page">' + emptyLibrary();
     } else {
+      html += chipRow(filterChannel) + '<main class="page">';
       if (filterChannel) {
-        html += '<div class="section-head"><a class="btn btn-ghost" href="#/channels">‹ All channels</a><h1 class="section-title">' + esc(filterChannel) + '</h1></div>';
+        html += '<div class="section-head">' + avatarHtml(filterChannel) + '<h1 class="section-title">' + esc(filterChannel) + '</h1>' +
+          '<span class="muted small">' + videos.length + (videos.length === 1 ? ' video' : ' videos') + '</span></div>';
       }
       if (videos.length > 4) {
-        html += '<div class="filter-row">' +
-          '<input class="filter" type="search" placeholder="Find in my videos…" value="' + esc(session.filter) + '" data-role="filter" aria-label="Find in my videos" autocomplete="off">' +
-        '</div>';
+        html += '<div class="filter-row"><label class="filter-box">' + icon('search') +
+          '<input class="filter" type="search" placeholder="Find in my videos" value="' + esc(session.filter) + '" data-role="filter" aria-label="Find in my videos" autocomplete="off">' +
+        '</label></div>';
       }
       if (!shown.length) {
         html += '<p class="muted center">No videos match “' + esc(session.filter) + '”.</p>';
@@ -251,12 +306,11 @@
     if (!state.videos.length) {
       html += emptyLibrary();
     } else {
-      html += '<div class="grid channels-grid">' + groups.map(function (g) {
-        var thumb = g.thumbnail || (g.videos[0] && (g.videos[0].thumbnail || YTH.thumbnailUrl(g.videos[0].youtubeId)));
-        return '<a class="card channel-card" href="#/channel/' + encodeURIComponent(g.name) + '">' +
-          '<div class="channel-avatar"><img src="' + esc(thumb) + '" alt="" loading="lazy"></div>' +
-          '<div class="card-body"><div class="card-title">' + esc(g.name) + '</div>' +
-          '<div class="card-channel">' + g.videos.length + (g.videos.length === 1 ? ' video' : ' videos') + '</div></div>' +
+      html += '<h1 class="page-title">Channels</h1><div class="channel-list">' + groups.map(function (g) {
+        return '<a class="channel-card" href="#/channel/' + encodeURIComponent(g.name) + '">' +
+          '<span class="channel-avatar">' + avatarHtml(g.name) + '</span>' +
+          '<span class="card-body"><span class="card-title">' + esc(g.name) + '</span>' +
+          '<span class="card-channel">' + g.videos.length + (g.videos.length === 1 ? ' video' : ' videos') + '</span></span>' +
         '</a>';
       }).join('') + '</div>';
     }
@@ -273,7 +327,9 @@
   }
 
   function watchInfo(v) {
-    return '<h1>' + esc(v.title) + '</h1><div class="muted">' + esc(v.channelName) + '</div>';
+    return '<h1>' + esc(v.title) + '</h1>' +
+      '<a class="channel-row" href="#/channel/' + encodeURIComponent(v.channelName || 'Other videos') + '">' + avatarHtml(v.channelName) +
+        '<span class="channel-row-name">' + esc(v.channelName) + '</span></a>';
   }
 
   /* The "Up next" row always shows the remaining queue, in play order. */
@@ -284,7 +340,7 @@
   function upNextSection() {
     var next = queuedVideos();
     if (!next.length) return '';
-    return '<h2>Up next</h2><div class="grid up-next">' + next.map(videoCard).join('') + '</div>';
+    return '<h2>Up next</h2><div class="up-next">' + next.map(videoCard).join('') + '</div>';
   }
 
   function viewWatch(id) {
@@ -301,14 +357,19 @@
     }
     return '' +
       '<div class="watch">' +
-        '<div class="watch-bar">' +
-          '<button class="btn btn-ghost btn-back" data-action="back">‹ Back</button>' +
+        '<header class="topbar watch-bar">' +
+          '<button class="icon-btn btn-back" data-action="back" aria-label="Back">' + icon('back') + '</button>' +
+          '<a class="brand" href="#/videos">' + logoHtml() + '<span class="brand-name">' + esc(state.settings.childName || 'My Videos') + '</span></a>' +
           '<div class="watch-title-sm">' + esc(v.title) + '</div>' +
-          timerChip() +
+          '<div class="topbar-right">' + timerChip() + '</div>' +
+        '</header>' +
+        '<div class="watch-layout">' +
+          '<div class="watch-main">' +
+            '<div class="player"><div id="yt-player"></div></div>' +
+            '<div class="watch-info">' + watchInfo(v) + '</div>' +
+          '</div>' +
+          '<section class="more">' + upNextSection() + '</section>' +
         '</div>' +
-        '<div class="player"><div id="yt-player"></div></div>' +
-        '<div class="watch-info">' + watchInfo(v) + '</div>' +
-        '<section class="more">' + upNextSection() + '</section>' +
       '</div>';
   }
 
@@ -447,7 +508,7 @@
     if (!box) return;
     box.innerHTML = '<div class="end-screen">' + message +
       '<div class="btn-row">' +
-        '<button class="btn btn-primary" data-action="replay">↻ Watch again</button>' +
+        '<button class="btn btn-primary" data-action="replay">' + icon('replay') + 'Watch again</button>' +
         '<a class="btn" href="' + esc(session.lastList || '#/videos') + '">Back to videos</a>' +
       '</div></div>';
   }
@@ -455,7 +516,7 @@
   function viewLocked() {
     var expired = state.watch && state.watch.until > 0;
     return kidHeader('') + '<main class="page"><div class="empty lock-screen">' +
-      '<div class="empty-icon" aria-hidden="true">' + (expired ? '⏰' : '🔒') + '</div>' +
+      '<div class="empty-icon" aria-hidden="true">' + icon(expired ? 'timer' : 'lock') + '</div>' +
       '<h2>' + (expired ? 'Time’s up for now!' : 'Ready to watch?') + '</h2>' +
       '<p>A grown-up can unlock ' + (state.settings.watchMinutes || 15) + ' minutes of videos.</p>' +
       '<a class="btn btn-primary btn-big" href="#/unlock">Ask a grown-up to unlock</a>' +
@@ -481,7 +542,7 @@
 
   function viewImport(payload) {
     var isSample = payload === 'sample';
-    var head = '<header class="topbar parent-bar"><div class="brand"><span class="brand-icon" aria-hidden="true">📥</span>' + (isSample ? 'Sample library' : 'Shared library') + '</div></header>';
+    var head = '<header class="topbar parent-bar"><div class="brand">' + logoHtml() + '<span class="brand-name">' + (isSample ? 'Sample library' : 'Shared library') + '</span></div></header>';
     var imp = session.import;
     if (!imp || imp.key !== payload) {
       session.import = { key: payload, data: null, error: null };
@@ -627,8 +688,8 @@
     var missing = videosMissingDetails().length;
     return '' +
       '<header class="topbar parent-bar">' +
-        '<div class="brand"><span class="brand-icon" aria-hidden="true">🔒</span>Parent mode</div>' +
-        '<button class="btn btn-primary" data-action="lock">Done · Kid mode</button>' +
+        '<div class="brand">' + logoHtml() + '<span class="brand-name">Parent mode</span></div>' +
+        '<div class="topbar-right"><button class="btn btn-primary" data-action="lock">Done</button></div>' +
       '</header>' +
       '<main class="page narrow">' +
 

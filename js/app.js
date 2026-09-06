@@ -451,6 +451,7 @@
     session.import = null;
     setStatus('ok', replace ? 'Library replaced with ' + state.sources.length + ' items.' : 'Added ' + added + ' new ' + (added === 1 ? 'item' : 'items') + '.', 'add');
     go('#/parent');
+    if (videosMissingDetails().length) setTimeout(fetchMissingDetails, 0);
   }
 
   function shareLink() {
@@ -547,6 +548,7 @@
 
   function viewDashboard() {
     var channelCount = state.sources.filter(function (s) { return s.type === 'channel'; }).length;
+    var missing = videosMissingDetails().length;
     return '' +
       '<header class="topbar parent-bar">' +
         '<div class="brand"><span class="brand-icon" aria-hidden="true">🔒</span>Parent mode</div>' +
@@ -598,9 +600,11 @@
       '</section>' +
 
       '<section class="panel">' +
-        '<div class="panel-head"><h2>Approved library</h2>' +
+        '<div class="panel-head"><h2>Approved library</h2><div class="btn-row">' +
+          (missing ? '<button class="btn btn-small" data-action="fetch-details"' + (session.busy ? ' disabled' : '') + '>Fetch missing details (' + missing + ')</button>' : '') +
           (channelCount ? '<button class="btn btn-small" data-action="refresh-all"' + (session.busy ? ' disabled' : '') + '>Refresh all channels</button>' : '') +
-        '</div>' +
+        '</div></div>' +
+        statusHtml('library') +
         (state.sources.length
           ? '<ul class="sources">' + state.sources.slice().sort(function (a, b) { return (b.addedAt || '').localeCompare(a.addedAt || ''); }).map(sourceRow).join('') + '</ul>'
           : '<p class="muted">Nothing approved yet. Paste a link above to get started.</p>') +
@@ -815,6 +819,39 @@
     });
   }
 
+  /* Videos whose title/channel never got fetched (offline add, seeded link). */
+  function videosMissingDetails() {
+    return state.videos.filter(function (v) { return !v.channelName || /^YouTube video [A-Za-z0-9_-]{11}$/.test(v.title); });
+  }
+
+  function fetchMissingDetails() {
+    var list = videosMissingDetails();
+    if (!list.length || session.busy) return;
+    session.busy = true;
+    setStatus('info', 'Fetching details for ' + list.length + ' videos…', 'library');
+    var done = 0, seen = 0;
+    var chain = Promise.resolve();
+    list.forEach(function (v) {
+      chain = chain.then(function () {
+        return YTH.fetchVideoMetadata(v.youtubeId).then(function (meta) {
+          seen++;
+          if (!meta) return;
+          v.title = meta.title || v.title;
+          v.channelName = meta.channelName || v.channelName;
+          var src = findSource(v.sourceId);
+          if (src && src.type === 'video') { src.title = v.title; src.channelName = v.channelName; }
+          done++;
+          if (seen % 5 === 0) { persist(); setStatus('info', 'Fetching details… ' + seen + ' of ' + list.length, 'library'); }
+        });
+      });
+    });
+    chain.then(function () {
+      persist();
+      session.busy = false;
+      setStatus(done === list.length ? 'ok' : 'warn', 'Updated ' + done + ' of ' + list.length + ' videos.' + (done < list.length ? ' Try again later for the rest.' : ''), 'library');
+    });
+  }
+
   function removeSource(id) {
     var s = findSource(id);
     if (!s) return;
@@ -888,6 +925,7 @@
         break;
       case 'remove-source': removeSource(el.dataset.id); break;
       case 'refresh-source': refreshSources([findSource(el.dataset.id)].filter(Boolean)); break;
+      case 'fetch-details': fetchMissingDetails(); break;
       case 'refresh-all': refreshSources(state.sources.filter(function (s) { return s.type === 'channel'; })); break;
       case 'toggle-hidden': {
         var v = findVideo(el.dataset.video);

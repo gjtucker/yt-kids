@@ -152,6 +152,11 @@ fine; QR codes do not.
 **Backup file** (Parent mode → *Download backup*) works the same way with a
 JSON file instead of a link.
 
+If a link or backup contains videos without a channel name (for example a
+list someone typed up by hand), the app fetches the missing titles and
+channel names from YouTube right after the import. **Fetch missing details**
+in the Approved library panel does the same on demand.
+
 ## Forgot the PIN?
 
 Clear this site's data in the browser (or use another browser). This also

@@ -44,10 +44,8 @@ Videos play in the official YouTube embed through the IFrame Player API:
 
 * The app keeps its own queue of the other approved videos (same channel
   first). The "Up next" list under the player is exactly that queue, in
-  order: when a video ends the first card plays next, in the same player.
-  Tapping a card switches to that video but leaves it paused (thumbnail and
-  play button), so a child flicking between videos doesn't trigger a
-  pre-roll ad for each one; the ad, if any, only comes when play is pressed.
+  order: when a video ends the first card plays next, in the same player, and
+  tapping any card plays it immediately without reloading the player.
 * When the queue runs out, the app replaces YouTube's end screen with its own
   "All done" screen offering *Watch again* and *Back to videos*.
 * If a video that is not in the library keeps playing for more than half a

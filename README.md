@@ -33,8 +33,8 @@ unlocks the library for 15 minutes (configurable in Parent mode → Watch time:
 5–60 minutes, or no limit). A countdown chip shows in the header and on the
 player; tapping it lets a parent restart the timer. When time runs out the
 player stops and the lock screen returns. If that interrupts a video, the
-app remembers the video, its position and the rest of the queue, and the
-next unlock resumes right there (the lock screen shows what will continue).
+app remembers the video and its position, and the next unlock resumes
+right there (the lock screen shows what will continue).
 The expiry is stored locally, so reloading the page neither resets nor
 extends it. Parent mode also has **Start now** and **Lock now** buttons.
 
@@ -42,10 +42,12 @@ extends it. Parent mode also has **Start now** and **Lock now** buttons.
 
 Videos play in the official YouTube embed through the IFrame Player API:
 
-* The app keeps its own queue of the other approved videos (same channel
-  first). The "Up next" list under the player is exactly that queue, in
-  order: when a video ends the first card plays next, in the same player, and
-  tapping any card plays it immediately without reloading the player.
+* Beside (or below) the player is a YouTube-style list of recommended
+  videos drawn only from the approved library: a couple from the same channel
+  first, then a mix of the rest, with "All" / "From this channel" chips. When
+  a video ends the top recommendation plays next in the same player, like
+  YouTube's autoplay; tapping any card plays it immediately. Videos already
+  watched in the session drop to the bottom of the list.
 * When the queue runs out, the app replaces YouTube's end screen with its own
   "All done" screen offering *Watch again* and *Back to videos*.
 * If a video that is not in the library keeps playing for more than half a

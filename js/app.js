@@ -121,7 +121,7 @@
   function saveResumePoint() {
     var pos = session.lastPos;
     if (route().name === 'watch' && pos && pos.youtubeId === session.currentVideoId && findVideo(pos.youtubeId)) {
-      state.watch.resume = { youtubeId: pos.youtubeId, seconds: Math.max(0, Math.floor(pos.seconds)), queue: (session.playQueue || []).slice(), savedAt: new Date().toISOString() };
+      state.watch.resume = { youtubeId: pos.youtubeId, seconds: Math.max(0, Math.floor(pos.seconds)), savedAt: new Date().toISOString() };
     } else {
       delete state.watch.resume;
     }
@@ -317,13 +317,30 @@
     return html + '</main>';
   }
 
-  /* Approved videos to queue after `v`: same channel first, then the rest. */
-  /* Approved videos to play after `v`: same channel first, then the rest. */
-  function upNextFor(v) {
+  /* Recommendations for the watch page, like YouTube's sidebar but drawn
+     only from the approved library: a couple from the same channel first,
+     then a stable per-video mix of everything else. Videos already watched
+     this session sink to the bottom so autoplay doesn't ping-pong. */
+  function seededOrder(list, seed) {
+    var h = 2166136261;
+    for (var i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619) >>> 0;
+    return list.map(function (item, i) {
+      var x = (Math.imul(h + i * 2654435761, 1103515245) + 12345) >>> 0;
+      return { item: item, key: x };
+    }).sort(function (a, b) { return a.key - b.key; }).map(function (o) { return o.item; });
+  }
+
+  function recommendationsFor(v, channelOnly) {
     var all = visibleVideos().filter(function (o) { return o.youtubeId !== v.youtubeId; });
     var same = all.filter(function (o) { return o.channelName === v.channelName; });
-    var rest = all.filter(function (o) { return o.channelName !== v.channelName; });
-    return same.concat(rest).slice(0, 50);
+    if (channelOnly) return same;
+    var lead = same.slice(0, 2);
+    var rest = seededOrder(all.filter(function (o) { return lead.indexOf(o) === -1; }), v.youtubeId);
+    var list = lead.concat(rest);
+    var watched = session.watched || {};
+    var fresh = list.filter(function (o) { return !watched[o.youtubeId]; });
+    var seen = list.filter(function (o) { return watched[o.youtubeId]; });
+    return fresh.concat(seen).slice(0, 30);
   }
 
   function watchInfo(v) {
@@ -332,15 +349,25 @@
         '<span class="channel-row-name">' + esc(v.channelName) + '</span></a>';
   }
 
-  /* The "Up next" row always shows the remaining queue, in play order. */
-  function queuedVideos() {
-    return (session.playQueue || []).map(findVideo).filter(function (o) { return o && !o.hidden; });
+  /* What the sidebar currently shows; its first item is what autoplays next. */
+  function recommendedVideos() {
+    var v = findVideo(session.currentVideoId);
+    if (!v) return [];
+    var channelOnly = session.recFilter === 'channel' && recommendationsFor(v, true).length > 0;
+    return recommendationsFor(v, channelOnly);
   }
 
   function upNextSection() {
-    var next = queuedVideos();
-    if (!next.length) return '';
-    return '<h2>Up next</h2><div class="up-next">' + next.map(videoCard).join('') + '</div>';
+    var v = findVideo(session.currentVideoId);
+    if (!v) return '';
+    var list = recommendedVideos();
+    if (!list.length) return '';
+    var hasSame = recommendationsFor(v, true).length > 0;
+    var chips = hasSame ? '<div class="chips rec-chips">' +
+      '<button class="chip' + (session.recFilter !== 'channel' ? ' active' : '') + '" data-action="rec-filter" data-value="all">All</button>' +
+      '<button class="chip' + (session.recFilter === 'channel' ? ' active' : '') + '" data-action="rec-filter" data-value="channel">From ' + esc(v.channelName) + '</button>' +
+    '</div>' : '';
+    return chips + '<div class="up-next">' + list.map(videoCard).join('') + '</div>';
   }
 
   function viewWatch(id) {
@@ -349,12 +376,11 @@
       return kidHeader('videos') + '<main class="page"><div class="empty"><h2>That video isn’t in the library</h2><a class="btn btn-primary" href="#/videos">Back to videos</a></div></main>';
     }
     if (session.resume && session.resume.youtubeId === id) {
-      session.playQueue = (session.resume.queue || []).filter(function (q) { var o = findVideo(q); return o && !o.hidden && q !== id; });
       session.startAt = session.resume.seconds || 0;
       session.resume = null;
-    } else if (!session.playQueue || !session.playQueue.length || session.currentVideoId !== id) {
-      session.playQueue = upNextFor(v).map(function (o) { return o.youtubeId; });
     }
+    session.currentVideoId = id;
+    session.watched = session.watched || {};
     return '' +
       '<div class="watch">' +
         '<header class="topbar watch-bar">' +
@@ -451,10 +477,11 @@
     });
   }
 
-  /* Update title, URL and the Up-next row for the video now playing. */
+  /* Update title, URL and the recommendations for the video now playing. */
   function showNowPlaying(v) {
+    session.watched = session.watched || {};
+    if (session.currentVideoId && session.currentVideoId !== v.youtubeId) session.watched[session.currentVideoId] = true;
     session.currentVideoId = v.youtubeId;
-    session.playQueue = (session.playQueue || []).filter(function (id) { return id !== v.youtubeId; });
     history.replaceState(null, '', location.pathname + location.search + '#/watch/' + v.youtubeId);
     var info = root.querySelector('.watch-info'); if (info) info.innerHTML = watchInfo(v);
     var bar = root.querySelector('.watch-title-sm'); if (bar) bar.textContent = v.title;
@@ -496,7 +523,9 @@
         }, (window.KIDTUBE_TEST && window.KIDTUBE_TEST.unknownGraceMs) || UNKNOWN_GRACE_MS);
       }
     } else if (e.data === states.ENDED) {
-      var next = queuedVideos()[0];
+      session.watched = session.watched || {};
+      session.watched[session.currentVideoId] = true;
+      var next = recommendedVideos()[0];
       if (next && playInPlace(next)) return;
       destroyPlayer();
       showPlayerScreen('<div class="end-title">All done!</div>');
@@ -1088,6 +1117,11 @@
     switch (action) {
       case 'back': go(session.lastList || '#/videos'); break;
       case 'replay': render(); break;
+      case 'rec-filter': {
+        session.recFilter = el.dataset.value === 'channel' ? 'channel' : 'all';
+        var more = root.querySelector('.more'); if (more) more.innerHTML = upNextSection();
+        break;
+      }
       case 'share-link': if (!session.busy) shareLink(); break;
       case 'copy-share-link':
         if (navigator.clipboard) {

@@ -178,7 +178,8 @@ h2 { font-size: 1rem; }
 .channel-row { display: flex; align-items: center; gap: 12px; }
 .channel-row-name { font-weight: 500; }
 .more { padding: 8px 16px 16px; }
-.more h2 { font-size: 1rem; font-weight: 500; margin: 0 0 12px; }
+.more .rec-chips { padding: 0 0 12px; margin: 0; }
+.more .chip { border: 0; font: inherit; cursor: pointer; }
 .up-next { display: grid; gap: 24px; }
 @media (min-width: 1000px) {
   .watch-bar .brand { display: flex; }

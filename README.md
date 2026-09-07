@@ -44,7 +44,9 @@ Videos play in the official YouTube embed through the IFrame Player API:
 
 * Beside (or below) the player is a YouTube-style list of recommended
   videos drawn only from the approved library: a couple from the same channel
-  first, then a mix of the rest, with "All" / "From this channel" chips. When
+  first, then the rest freshly shuffled each time a video starts, with
+  "All" / "From this channel" chips. On tablets in landscape the list is a
+  two-column grid beside the player, as on m.youtube.com. When
   a video ends the top recommendation plays next in the same player, like
   YouTube's autoplay; tapping any card plays it immediately. Videos already
   watched in the session drop to the bottom of the list.

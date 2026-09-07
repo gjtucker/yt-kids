@@ -318,26 +318,34 @@
   }
 
   /* Recommendations for the watch page, like YouTube's sidebar but drawn
-     only from the approved library: a couple from the same channel first,
-     then a stable per-video mix of everything else. Videos already watched
-     this session sink to the bottom so autoplay doesn't ping-pong. */
-  function seededOrder(list, seed) {
-    var h = 2166136261;
-    for (var i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619) >>> 0;
-    return list.map(function (item, i) {
-      var x = (Math.imul(h + i * 2654435761, 1103515245) + 12345) >>> 0;
-      return { item: item, key: x };
-    }).sort(function (a, b) { return a.key - b.key; }).map(function (o) { return o.item; });
+     only from the approved library: one or two from the same channel first,
+     then everything else freshly shuffled each time a video starts (cached
+     per video so chip toggles and re-renders don't reshuffle). Videos
+     already watched this session sink to the bottom so autoplay doesn't
+     ping-pong. */
+  function shuffled(list) {
+    var a = list.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
   }
 
   function recommendationsFor(v, channelOnly) {
     var all = visibleVideos().filter(function (o) { return o.youtubeId !== v.youtubeId; });
     var same = all.filter(function (o) { return o.channelName === v.channelName; });
-    if (channelOnly) return same;
-    var lead = same.slice(0, 2);
-    var rest = seededOrder(all.filter(function (o) { return lead.indexOf(o) === -1; }), v.youtubeId);
-    var list = lead.concat(rest);
     var watched = session.watched || {};
+    if (channelOnly) {
+      return same.filter(function (o) { return !watched[o.youtubeId]; }).concat(same.filter(function (o) { return watched[o.youtubeId]; }));
+    }
+    var cache = session.recCache;
+    if (!cache || cache.id !== v.youtubeId || cache.count !== all.length) {
+      var lead = shuffled(same).slice(0, 2);
+      var rest = shuffled(all.filter(function (o) { return lead.indexOf(o) === -1; }));
+      cache = session.recCache = { id: v.youtubeId, count: all.length, ids: lead.concat(rest).map(function (o) { return o.youtubeId; }) };
+    }
+    var list = cache.ids.map(findVideo).filter(function (o) { return o && !o.hidden; });
     var fresh = list.filter(function (o) { return !watched[o.youtubeId]; });
     var seen = list.filter(function (o) { return watched[o.youtubeId]; });
     return fresh.concat(seen).slice(0, 30);

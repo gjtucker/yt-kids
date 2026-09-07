@@ -181,20 +181,30 @@ h2 { font-size: 1rem; }
 .more .rec-chips { padding: 0 0 12px; margin: 0; }
 .more .chip { border: 0; font: inherit; cursor: pointer; }
 .up-next { display: grid; gap: 24px; }
-@media (min-width: 1000px) {
+/* Tablets and up: player left, a two-column grid of suggestions right,
+   like m.youtube.com in landscape. */
+@media (min-width: 800px) {
   .watch-bar .brand { display: flex; }
   .watch-title-sm { display: none; }
-  .watch-layout { display: grid; grid-template-columns: minmax(0, 1fr) 402px; gap: 24px; padding: 8px 24px 24px; }
+  .watch-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 42%); gap: 16px; padding: 8px 16px 24px; align-items: start; }
   .watch-main .player { border-radius: 12px; overflow: hidden; }
   .watch-info { padding: 12px 0; }
   .more { padding: 0; }
-  .up-next { gap: 8px; }
+  .up-next { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 8px; }
+  .up-next .card-body { padding-top: 8px; gap: 8px; }
+  .up-next .avatar { width: 28px; height: 28px; font-size: 0.8rem; }
+  .up-next .card-title { font-size: 0.85rem; }
+  .up-next .card-channel { font-size: 0.75rem; }
+}
+/* Wide desktop: YouTube's compact single-column sidebar. */
+@media (min-width: 1400px) {
+  .watch-layout { grid-template-columns: minmax(0, 1fr) 402px; gap: 24px; padding: 8px 24px 24px; }
+  .up-next { grid-template-columns: 1fr; gap: 8px; }
   .up-next .card { display: flex; gap: 8px; }
   .up-next .thumb { flex: 0 0 168px; border-radius: 8px; }
   .up-next .card-body { padding: 0; gap: 0; }
   .up-next .avatar { display: none; }
   .up-next .card-title { font-size: 0.9rem; }
-  .up-next .card-channel { font-size: 0.75rem; }
 }
 .end-screen {
   position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;

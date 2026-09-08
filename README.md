@@ -125,12 +125,17 @@ branch is different.
 ## Sample library
 
 Open `https://<user>.github.io/<repo>/sample/` (or `#/sample`) to load a
-starter set of about 60 videos: LEGO builds and working LEGO locks, gem
-mining, geodes, gold panning and treasure hunts, and fire safety and fire
-alarm videos. It goes through the same PIN-protected import screen as a share
-link, so nothing is added until a parent confirms. The list lives in
-`js/sample.js`; edit or delete that file to change or remove it. The videos
-were picked from search results and are worth a quick skim in Parent mode.
+starter set: about 60 videos (LEGO builds and working LEGO locks, gem mining,
+geodes, gold panning and treasure hunts, fire safety and fire alarm videos)
+and about 90 kid-friendly channels (science such as SciShow Kids, Mark Rober
+and TED-Ed; making and crafts such as Art for Kids Hub and Crayola; animals;
+fire safety; LEGO builders such as TD BRICKS; and classics such as Mister
+Rogers' Neighborhood and PBS KIDS). It goes through the same PIN-protected
+import screen as a share link, so nothing is added until a parent confirms.
+The channels load their latest uploads once a YouTube API key is set. The
+list lives in `js/sample.js`; edit or delete that file to change or remove
+it. The videos were picked from search results and are worth a quick skim in
+Parent mode.
 
 ## Optional: YouTube Data API key (for channels)
 

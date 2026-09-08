@@ -757,6 +757,10 @@
   function viewDashboard() {
     var channelCount = state.sources.filter(function (s) { return s.type === 'channel'; }).length;
     var missing = videosMissingDetails().length;
+    var waiting = state.sources.filter(function (s) { return s.type === 'channel' && s.needsDetails; }).length;
+    var waitingNote = waiting && !state.settings.apiKey
+      ? '<p class="status status-warn">' + waiting + (waiting === 1 ? ' channel needs' : ' channels need') + ' a YouTube API key to load videos. Add one in Settings below, then tap Refresh all channels.</p>'
+      : '';
     return '' +
       '<header class="topbar parent-bar">' +
         '<div class="brand">' + logoHtml() + '<span class="brand-name">Parent mode</span></div>' +
@@ -812,6 +816,7 @@
           (missing ? '<button class="btn btn-small" data-action="fetch-details"' + (session.busy ? ' disabled' : '') + '>Fetch missing details (' + missing + ')</button>' : '') +
           (channelCount ? '<button class="btn btn-small" data-action="refresh-all"' + (session.busy ? ' disabled' : '') + '>Refresh all channels</button>' : '') +
         '</div></div>' +
+        waitingNote +
         statusHtml('library') +
         (state.sources.length
           ? '<ul class="sources">' + state.sources.slice().sort(function (a, b) { return (b.addedAt || '').localeCompare(a.addedAt || ''); }).map(sourceRow).join('') + '</ul>'

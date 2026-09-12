@@ -269,9 +269,27 @@
       '</div>';
   }
 
+  /* Home page order: the newest uploads first, then everything else in a
+     per-session shuffle that pushes channels watched in the last two days
+     down, so the same set doesn't look static. */
+  function homeOrder(videos) {
+    var ids = videos.map(function (v) { return v.youtubeId; }).join(',');
+    if (session.homeOrder && session.homeOrder.key === ids) return session.homeOrder.list.map(findVideo).filter(Boolean);
+    var recent = Date.now() - 2 * 86400000;
+    var watched = state.channelWatched || {};
+    var newest = videos.slice(0, Math.min(6, Math.floor(videos.length / 4)));
+    var rest = videos.slice(newest.length);
+    var fresh = shuffled(rest.filter(function (v) { return !(watched[v.channelName] > recent); }));
+    var stale = shuffled(rest.filter(function (v) { return watched[v.channelName] > recent; }));
+    var list = newest.concat(fresh, stale);
+    session.homeOrder = { key: ids, list: list.map(function (v) { return v.youtubeId; }) };
+    return list;
+  }
+
   function viewVideos(filterChannel) {
     var videos = visibleVideos();
     if (filterChannel) videos = videos.filter(function (v) { return (v.channelName || 'Other videos') === filterChannel; });
+    else videos = homeOrder(videos);
     var q = session.filter.trim().toLowerCase();
     var shown = q ? videos.filter(function (v) {
       return (v.title + ' ' + v.channelName).toLowerCase().indexOf(q) !== -1;
@@ -527,6 +545,7 @@
       var v = findVideo(id);
       if (v && !v.hidden) {
         clearTimeout(session.unknownTimer); session.unknownTimer = null;
+        if (v.channelName) { state.channelWatched = state.channelWatched || {}; state.channelWatched[v.channelName] = Date.now(); persist(); }
         if (id !== session.currentVideoId) showNowPlaying(v); // e.g. picked from the overlay
         return;
       }
@@ -750,6 +769,7 @@
         '</div>' +
         '<div class="source-actions">' +
           (s.type === 'channel' ? '<button class="btn btn-small" data-action="refresh-source" data-id="' + esc(s.id) + '"' + (session.busy ? ' disabled' : '') + '>Refresh</button>' : '') +
+          (s.type === 'channel' && s.nextPageToken ? '<button class="btn btn-small" data-action="load-older" data-id="' + esc(s.id) + '"' + (session.busy ? ' disabled' : '') + '>Load older</button>' : '') +
           '<button class="btn btn-small btn-danger" data-action="remove-source" data-id="' + esc(s.id) + '">Remove</button>' +
         '</div>' +
       '</div>';
@@ -792,6 +812,8 @@
           (state.settings.apiKey ? 'Channel links (youtube.com/@name) add that channel’s latest uploads.' : 'To add whole channels, enter a YouTube API key in Settings below.') +
           ' <a href="#" data-action="use-sample">Try a sample video</a>' + (window.SAMPLE_LIBRARY ? ' or <a href="#/sample">load the sample library</a> (' + window.SAMPLE_LIBRARY.sources.length + ' videos).' : '') + '</p>' +
       '</section>' +
+
+      explorePanel() +
 
       '<section class="panel">' +
         '<div class="panel-head"><h2>Watch time</h2>' +
@@ -921,7 +943,9 @@
     return addChannel(ref);
   }
 
-  function addVideo(videoId) {
+  /* `hint` carries title/channel already known (e.g. from a search result)
+     in case the lookups fail. */
+  function addVideo(videoId, hint) {
     if (findVideo(videoId)) {
       setStatus('info', 'That video is already in the library.');
       return;
@@ -940,7 +964,7 @@
     }).then(function (meta) {
       return playable.then(function (ok) {
         if (ok === false || (meta && meta.unavailable)) throw new Error('UNPLAYABLE');
-        return meta;
+        return meta || (hint && hint.title ? { title: hint.title, channelName: hint.channelName || '' } : null);
       });
     }).then(function (meta) {
       var now = new Date().toISOString();
@@ -1033,9 +1057,152 @@
         added++;
       });
       source.lastSyncedAt = new Date().toISOString();
+      if (uploads.nextPageToken !== undefined) source.nextPageToken = uploads.nextPageToken;
       return checkPlayability(state.videos.filter(function (v) { return v.sourceId === source.id; })).then(function () { return added; });
     });
   }
+
+  /* Pull the next 50 older uploads of a channel (1 unit). */
+  function loadOlder(source) {
+    if (!source || !source.nextPageToken || session.busy) return;
+    session.busy = true;
+    setStatus('info', 'Loading older videos from “' + source.title + '”…', 'library');
+    YTH.fetchChannelUploads(state.settings.apiKey, source.uploadsPlaylistId, 50, source.nextPageToken).then(function (uploads) {
+      var existing = {};
+      state.videos.forEach(function (v) { existing[v.youtubeId] = v; });
+      var fresh = [];
+      uploads.forEach(function (u) {
+        if (existing[u.youtubeId]) return;
+        var v = { youtubeId: u.youtubeId, title: u.title, channelName: u.channelName || source.title, thumbnail: u.thumbnail, sourceId: source.id, publishedAt: u.publishedAt || '', addedAt: new Date().toISOString() };
+        state.videos.push(v); fresh.push(v);
+      });
+      source.nextPageToken = uploads.nextPageToken || '';
+      return checkPlayability(fresh).then(function (bad) {
+        persist();
+        session.busy = false;
+        setStatus('ok', 'Added ' + fresh.length + ' older ' + (fresh.length === 1 ? 'video' : 'videos') + ' from “' + source.title + '”.' + (bad ? ' ' + bad + ' can’t be embedded and stay hidden.' : '') + (source.nextPageToken ? '' : ' That’s the whole channel.'), 'library');
+      });
+    }).catch(function (err) {
+      session.busy = false;
+      setStatus('error', err.message, 'library');
+    });
+  }
+
+  /* ---------------- explore (parent-only discovery) ---------------- */
+
+  function approvedChannelIds() {
+    var map = {};
+    state.sources.forEach(function (src) { if (src.type === 'channel') map[src.youtubeId] = true; });
+    return map;
+  }
+
+  /* Scan every approved channel's featured channels and rank the ones we
+     don't have yet by how many of ours feature them. ~1 unit per channel. */
+  function scanSuggestions() {
+    var key = state.settings.apiKey;
+    var channels = state.sources.filter(function (src) { return src.type === 'channel'; });
+    if (!key || !channels.length || session.busy) return;
+    session.busy = true;
+    setStatus('info', 'Looking at what your ' + channels.length + ' channels feature…', 'explore');
+    var have = approvedChannelIds();
+    var counts = {}, by = {};
+    var chain = Promise.resolve();
+    channels.forEach(function (src) {
+      chain = chain.then(function () {
+        return YTH.fetchFeaturedChannels(key, src.youtubeId).then(function (ids) {
+          ids.forEach(function (id) {
+            if (have[id]) return;
+            counts[id] = (counts[id] || 0) + 1;
+            (by[id] = by[id] || []).push(src.title);
+          });
+        }).catch(function () { /* skip channels that fail */ });
+      });
+    });
+    chain.then(function () {
+      var ids = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; }).slice(0, 60);
+      return ids.length ? YTH.fetchChannelsInfo(key, ids) : [];
+    }).then(function (infos) {
+      state.explore.suggestions = infos.map(function (c) {
+        return { channelId: c.channelId, title: c.title, thumbnail: c.thumbnail, count: counts[c.channelId] || 0, by: (by[c.channelId] || []).slice(0, 4) };
+      }).sort(function (a, b) { return b.count - a.count || a.title.localeCompare(b.title); });
+      state.explore.scannedAt = new Date().toISOString();
+      persist();
+      session.busy = false;
+      setStatus(state.explore.suggestions.length ? 'ok' : 'info', state.explore.suggestions.length ? 'Found ' + state.explore.suggestions.length + ' channels featured by yours.' : 'Your channels don’t feature any channels you don’t already have.', 'explore');
+    }).catch(function (err) {
+      session.busy = false;
+      setStatus('error', err.message, 'explore');
+    });
+  }
+
+  function runSearch(query, type) {
+    var key = state.settings.apiKey;
+    if (!key) { setStatus('error', 'Searching needs a YouTube Data API key (see Settings).', 'explore'); return; }
+    if (!query.trim() || session.busy) return;
+    session.busy = true;
+    session.search = { query: query, type: type, results: [] };
+    setStatus('info', 'Searching YouTube…', 'explore');
+    YTH.searchYouTube(key, query.trim(), type).then(function (results) {
+      session.search.results = results;
+      session.busy = false;
+      setStatus(results.length ? null : 'info', results.length ? '' : 'No results.', 'explore');
+    }).catch(function (err) {
+      session.busy = false;
+      setStatus('error', err.message, 'explore');
+    });
+  }
+
+  function suggestionRow(c) {
+    return '<li class="explore-item">' +
+      '<span class="avatar">' + (c.thumbnail ? '<img src="' + esc(c.thumbnail) + '" alt="">' : esc((c.title || '?').charAt(0))) + '</span>' +
+      '<div class="source-text"><div class="source-title">' + esc(c.title) + '</div>' +
+        '<div class="muted small">Featured by ' + esc(c.by.join(', ')) + (c.count > c.by.length ? ' and ' + (c.count - c.by.length) + ' more' : '') + '</div></div>' +
+      '<div class="source-actions">' +
+        '<button class="btn btn-small btn-primary" data-action="add-channel-id" data-id="' + esc(c.channelId) + '"' + (session.busy ? ' disabled' : '') + '>Add</button>' +
+        '<button class="btn btn-small" data-action="dismiss-suggestion" data-id="' + esc(c.channelId) + '" aria-label="Not interested">✕</button>' +
+      '</div></li>';
+  }
+
+  function searchResultRow(r) {
+    var have = r.kind === 'channel' ? !!approvedChannelIds()[r.channelId] : !!findVideo(r.youtubeId);
+    return '<li class="explore-item">' +
+      (r.kind === 'channel'
+        ? '<span class="avatar">' + (r.thumbnail ? '<img src="' + esc(r.thumbnail) + '" alt="">' : esc((r.title || '?').charAt(0))) + '</span>'
+        : '<span class="source-thumb"><img src="' + esc(r.thumbnail) + '" alt=""></span>') +
+      '<div class="source-text"><div class="source-title">' + esc(r.title) + '</div>' +
+        '<div class="muted small">' + (r.kind === 'channel' ? 'Channel' : esc(r.channelName)) + '</div></div>' +
+      '<div class="source-actions">' +
+        (have ? '<span class="badge">In library</span>'
+          : '<button class="btn btn-small btn-primary" data-action="' + (r.kind === 'channel' ? 'add-channel-id' : 'add-video-id') + '" data-id="' + esc(r.kind === 'channel' ? r.channelId : r.youtubeId) + '"' + (session.busy ? ' disabled' : '') + '>Add</button>') +
+      '</div></li>';
+  }
+
+  function explorePanel() {
+    var key = state.settings.apiKey;
+    var dismissed = state.explore.dismissed || {};
+    var have = approvedChannelIds();
+    var suggestions = (state.explore.suggestions || []).filter(function (c) { return !dismissed[c.channelId] && !have[c.channelId]; });
+    var channelCount = state.sources.filter(function (src) { return src.type === 'channel'; }).length;
+    var search = session.search || { query: '', type: 'video', results: [] };
+    return '<section class="panel" id="explore">' +
+      '<h2>Explore</h2>' +
+      (key ? '' : '<p class="muted small">Exploring needs a YouTube Data API key. Add one in Settings below.</p>') +
+      '<form data-form="search" class="add-form">' +
+        '<input type="search" name="q" placeholder="Search YouTube (parents only)…" value="' + esc(search.query) + '" autocomplete="off"' + (key && !session.busy ? '' : ' disabled') + '>' +
+        '<select name="type"' + (key ? '' : ' disabled') + '><option value="video"' + (search.type !== 'channel' ? ' selected' : '') + '>Videos</option><option value="channel"' + (search.type === 'channel' ? ' selected' : '') + '>Channels</option></select>' +
+        '<button class="btn btn-primary" type="submit"' + (key && !session.busy ? '' : ' disabled') + '>Search</button>' +
+      '</form>' +
+      '<p class="muted small">Strict safe search, embeddable videos only. Results never appear in kid mode until you add them. Each search uses about 1% of the key’s daily allowance.</p>' +
+      statusHtml('explore') +
+      (search.results.length ? '<ul class="explore-list">' + search.results.map(searchResultRow).join('') + '</ul>' : '') +
+      '<div class="panel-head" style="margin-top:16px"><h3>Channels your channels feature</h3>' +
+        '<button class="btn btn-small" data-action="scan-suggestions"' + (key && channelCount && !session.busy ? '' : ' disabled') + '>' + (state.explore.scannedAt ? 'Scan again' : 'Scan my channels') + '</button></div>' +
+      (state.explore.scannedAt ? '<p class="muted small">Last scanned ' + formatDate(state.explore.scannedAt) + '. Channels ranked by how many of yours feature them.</p>'
+        : '<p class="muted small">Many channels list the channels they recommend on their own page. Scanning yours finds the ones you don’t have yet.</p>') +
+      (suggestions.length ? '<ul class="explore-list">' + suggestions.slice(0, 30).map(suggestionRow).join('') + '</ul>' : '') +
+    '</section>';
+  }
+
 
   /* Mark videos that can't play in an embed so kid mode never offers them.
      Needs an API key; checks only videos not checked before. */
@@ -1193,6 +1360,20 @@
       case 'remove-source': removeSource(el.dataset.id); break;
       case 'refresh-source': refreshSources([findSource(el.dataset.id)].filter(Boolean)); break;
       case 'fetch-details': fetchMissingDetails(); break;
+      case 'load-older': loadOlder(findSource(el.dataset.id)); break;
+      case 'scan-suggestions': scanSuggestions(); break;
+      case 'dismiss-suggestion':
+        state.explore.dismissed = state.explore.dismissed || {};
+        state.explore.dismissed[el.dataset.id] = true;
+        persist(); render();
+        break;
+      case 'add-channel-id': if (!session.busy) addChannel({ channelId: el.dataset.id }); break;
+      case 'add-video-id': {
+        if (session.busy) break;
+        var hit = ((session.search && session.search.results) || []).filter(function (r) { return r.youtubeId === el.dataset.id; })[0];
+        addVideo(el.dataset.id, hit);
+        break;
+      }
       case 'refresh-all':
         if (state.sources.some(function (s) { return s.type === 'channel' && s.needsDetails; }) && state.settings.apiKey) completeImport();
         else refreshSources(state.sources.filter(function (s) { return s.type === 'channel'; }));
@@ -1276,6 +1457,9 @@
       case 'add':
         if (session.busy) return;
         addFromUrl(form.url.value);
+        break;
+      case 'search':
+        runSearch(form.q.value, form.type.value);
         break;
       case 'settings':
         state.settings.childName = form.childName.value.trim() || 'My Videos';

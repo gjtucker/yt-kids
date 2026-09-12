@@ -153,6 +153,26 @@ list lives in `js/sample.js`; edit or delete that file to change or remove
 it. The videos were picked from search results and are worth a quick skim in
 Parent mode.
 
+## Explore (finding new things to approve)
+
+The library would go stale if nothing ever changed, so Parent mode has an
+**Explore** section (all of it needs the API key, none of it is visible in
+kid mode):
+
+* **Search YouTube** – strict safe search, embeddable videos only, with an
+  *Add* button on each result. Each search costs about 1% of the key's daily
+  allowance, so it is for parents, not for browsing.
+* **Channels your channels feature** – many channels list recommended
+  channels on their own page. *Scan my channels* reads those for every
+  approved channel (1 unit each) and ranks the ones you don't have yet by how
+  many of yours feature them. Add or dismiss each suggestion.
+* **Load older** – a channel initially brings its latest 50 uploads; this
+  button pulls the next 50, again and again, until the whole channel is in.
+
+Kid mode also rotates the home page: the newest uploads come first, then the
+rest in a fresh order each visit, with channels watched in the last two days
+pushed down.
+
 ## Optional: YouTube Data API key (for channels)
 
 Individual videos never need a key. To add whole channels:

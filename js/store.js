@@ -9,6 +9,8 @@
       version: 1,
       settings: { parentPinHash: null, childName: 'My Videos', apiKey: '', blockYouTubeLinks: true, useYouTubeSignIn: false, watchMinutes: 15 },
       watch: { until: 0 },
+      explore: { suggestions: [], scannedAt: null, dismissed: {} },
+      channelWatched: {},
       sources: [],
       videos: []
     };
@@ -24,6 +26,8 @@
         state.sources = Array.isArray(parsed.sources) ? parsed.sources : [];
         state.videos = Array.isArray(parsed.videos) ? parsed.videos : [];
         if (parsed.watch && typeof parsed.watch.until === 'number') state.watch = parsed.watch;
+        if (parsed.explore && Array.isArray(parsed.explore.suggestions)) state.explore = Object.assign(state.explore, parsed.explore);
+        if (parsed.channelWatched && typeof parsed.channelWatched === 'object') state.channelWatched = parsed.channelWatched;
       }
     } catch (e) {
       console.warn('Could not read saved data', e);

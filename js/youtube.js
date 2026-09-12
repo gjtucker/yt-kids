@@ -164,13 +164,15 @@
   }
 
   /* Most recent uploads of a channel (up to `max`, default 50 = one API page). */
-  function fetchChannelUploads(apiKey, uploadsPlaylistId, max) {
-    return apiGet(apiKey, 'playlistItems', {
+  function fetchChannelUploads(apiKey, uploadsPlaylistId, max, pageToken) {
+    var params = {
       part: 'snippet,contentDetails',
       playlistId: uploadsPlaylistId,
       maxResults: Math.min(max || 50, 50)
-    }).then(function (data) {
-      return (data.items || []).map(function (item) {
+    };
+    if (pageToken) params.pageToken = pageToken;
+    return apiGet(apiKey, 'playlistItems', params).then(function (data) {
+      var videos = (data.items || []).map(function (item) {
         var s = item.snippet;
         var id = s.resourceId && s.resourceId.videoId;
         return {
@@ -181,6 +183,62 @@
           publishedAt: (item.contentDetails && item.contentDetails.videoPublishedAt) || s.publishedAt
         };
       }).filter(function (v) { return v.youtubeId && v.title !== 'Private video' && v.title !== 'Deleted video'; });
+      videos.nextPageToken = data.nextPageToken || '';
+      return videos;
+    });
+  }
+
+  /* Channels a channel features on its own page ("multipleChannels"
+     sections). 1 unit per call. */
+  function fetchFeaturedChannels(apiKey, channelId) {
+    return apiGet(apiKey, 'channelSections', { part: 'contentDetails', channelId: channelId }).then(function (data) {
+      var ids = [];
+      (data.items || []).forEach(function (item) {
+        var list = item.contentDetails && item.contentDetails.channels;
+        if (list) list.forEach(function (id) { if (ids.indexOf(id) === -1) ids.push(id); });
+      });
+      return ids;
+    });
+  }
+
+  /* Names, pictures and upload playlists for up to 50 channel ids per call. */
+  function fetchChannelsInfo(apiKey, ids) {
+    var out = [];
+    var chain = Promise.resolve();
+    for (var i = 0; i < ids.length; i += 50) {
+      (function (chunk) {
+        chain = chain.then(function () {
+          return apiGet(apiKey, 'channels', { part: 'snippet,contentDetails', id: chunk.join(','), maxResults: 50 }).then(function (data) {
+            (data.items || []).forEach(function (item) {
+              var thumbs = item.snippet.thumbnails || {};
+              out.push({
+                channelId: item.id,
+                title: item.snippet.title,
+                thumbnail: (thumbs.medium || thumbs.default || {}).url || '',
+                uploadsPlaylistId: item.contentDetails.relatedPlaylists.uploads
+              });
+            });
+          });
+        });
+      })(ids.slice(i, i + 50));
+    }
+    return chain.then(function () { return out; });
+  }
+
+  /* Parent-only search. Strict safe search; videos limited to embeddable
+     ones. 100 units per call. */
+  function searchYouTube(apiKey, query, type) {
+    var params = { part: 'snippet', q: query, type: type === 'channel' ? 'channel' : 'video', maxResults: 20, safeSearch: 'strict' };
+    if (params.type === 'video') { params.videoEmbeddable = 'true'; params.videoSyndicated = 'true'; }
+    return apiGet(apiKey, 'search', params).then(function (data) {
+      return (data.items || []).map(function (item) {
+        var sn = item.snippet || {};
+        var thumbs = sn.thumbnails || {};
+        if (params.type === 'channel') {
+          return { kind: 'channel', channelId: item.id.channelId, title: sn.title, thumbnail: (thumbs.medium || thumbs.default || {}).url || '' };
+        }
+        return { kind: 'video', youtubeId: item.id.videoId, title: sn.title, channelName: sn.channelTitle || '', thumbnail: thumbnailUrl(item.id.videoId), publishedAt: sn.publishedAt };
+      }).filter(function (r) { return r.kind === 'channel' ? r.channelId : r.youtubeId; });
     });
   }
 
@@ -205,6 +263,9 @@
     resolveChannel: resolveChannel,
     fetchChannelUploads: fetchChannelUploads,
     fetchVideoDetails: fetchVideoDetails,
-    fetchPlayability: fetchPlayability
+    fetchPlayability: fetchPlayability,
+    fetchFeaturedChannels: fetchFeaturedChannels,
+    fetchChannelsInfo: fetchChannelsInfo,
+    searchYouTube: searchYouTube
   };
 })();

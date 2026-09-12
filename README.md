@@ -65,6 +65,22 @@ Videos play in the official YouTube embed through the IFrame Player API:
 YouTube's own player chrome is otherwise left alone, and the pause overlay
 still shows same-channel suggestions.
 
+### Videos that can't be embedded
+
+Some owners disable embedding, and private or age-restricted videos won't
+play outside youtube.com either. The app keeps those out of kid mode:
+
+* With an API key, every channel upload is checked when the channel is
+  synced, and a pasted video link is checked before it is added.
+* Without a key, a pasted link is checked through YouTube's oEmbed endpoint
+  (it refuses non-embeddable videos), and the same check runs when missing
+  details are fetched after an import.
+* If a video still fails in the player, it is marked unplayable on the spot
+  and the next recommendation plays.
+
+Parent mode shows such videos with a "Can't play" badge and counts them per
+channel; they are not deleted, just never offered to the child.
+
 ### Ads
 
 Embeds show the same ads as youtube.com. Tapping an ad cannot open the

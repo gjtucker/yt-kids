@@ -76,9 +76,41 @@
       if (!data || !data.title) return null;
       return { title: data.title, channelName: data.author_name || '' };
     }
-    return fetchJson(oembed).then(pick).catch(function () {
-      return fetchJson(noembed).then(pick).catch(function () { return null; });
+    // oEmbed answers 401/403 for videos whose owner disabled embedding and
+    // 404 for private/removed ones, so those are detectable without a key.
+    return fetch(oembed).then(function (res) {
+      if (res.status === 401 || res.status === 403 || res.status === 404) return { unavailable: true };
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json().then(pick);
+    }).catch(function () {
+      return fetchJson(noembed).then(function (data) {
+        if (data && data.error && /401|403|404|not found|unauthorized/i.test(String(data.error))) return { unavailable: true };
+        return pick(data);
+      }).catch(function () { return null; });
     });
+  }
+
+  /* Whether videos can be played inside an embed: public, embeddable and
+     not age-restricted. Returns { id: true|false } for every id found;
+     ids YouTube doesn't return (private/removed) come back false. */
+  function fetchPlayability(apiKey, ids) {
+    var result = {};
+    ids.forEach(function (id) { result[id] = false; });
+    var chain = Promise.resolve();
+    for (var i = 0; i < ids.length; i += 50) {
+      (function (chunk) {
+        chain = chain.then(function () {
+          return apiGet(apiKey, 'videos', { part: 'status,contentDetails', id: chunk.join(','), maxResults: 50 }).then(function (data) {
+            (data.items || []).forEach(function (item) {
+              var st = item.status || {}, cd = item.contentDetails || {};
+              var age = cd.contentRating && cd.contentRating.ytRating === 'ytAgeRestricted';
+              result[item.id] = st.embeddable !== false && st.privacyStatus === 'public' && !age;
+            });
+          });
+        });
+      })(ids.slice(i, i + 50));
+    }
+    return chain.then(function () { return result; });
   }
 
   /* ---------- YouTube Data API v3 (optional, needs an API key) ---------- */
@@ -172,6 +204,7 @@
     fetchVideoMetadata: fetchVideoMetadata,
     resolveChannel: resolveChannel,
     fetchChannelUploads: fetchChannelUploads,
-    fetchVideoDetails: fetchVideoDetails
+    fetchVideoDetails: fetchVideoDetails,
+    fetchPlayability: fetchPlayability
   };
 })();

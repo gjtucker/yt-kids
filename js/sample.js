@@ -12,8 +12,8 @@ window.SAMPLE_LIBRARY = {
    "id": "sample--KG3a29-af0",
    "type": "video",
    "youtubeId": "-KG3a29-af0",
-   "title": "Impossible LEGO Build That Can't Be Taken Apart!",
-   "channelName": "TD BRICKS",
+   "title": "Impossible LEGO Build That Can't Be Taken Apart! | TD BRICKS",
+   "channelName": "Slippy Entertainment",
    "addedAt": "2026-09-06T11:59:00.000Z"
   },
   {
@@ -29,7 +29,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "LgkGlZ4_kIo",
    "title": "We Tested Illegal LEGO Builds (ft. TD Bricks)",
-   "channelName": "",
+   "channelName": "Brick Science",
    "addedAt": "2026-09-06T11:57:00.000Z"
   },
   {
@@ -37,7 +37,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "9aiEsfB5r60",
    "title": "Level 1 to 100 Lego Builds (ft. TD Bricks)",
-   "channelName": "",
+   "channelName": "Hafu Go",
    "addedAt": "2026-09-06T11:56:00.000Z"
   },
   {
@@ -45,7 +45,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "OmTSh-vEsZw",
    "title": "Building the Jedi Temple in 8 minutes! LEGO Star Wars MOC Timelapse",
-   "channelName": "",
+   "channelName": "Solid Brix Studios",
    "addedAt": "2026-09-06T11:55:00.000Z"
   },
   {
@@ -53,15 +53,15 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "MzlGQJ2q7FY",
    "title": "Building Daro in 6 minutes! LEGO Star Wars MOC Timelapse",
-   "channelName": "",
+   "channelName": "Solid Brix Studios",
    "addedAt": "2026-09-06T11:54:00.000Z"
   },
   {
    "id": "sample-01wokJs1MVE",
    "type": "video",
    "youtubeId": "01wokJs1MVE",
-   "title": "Building Dagobah in 5 Minutes! Lego Star Wars MOC Timelapse",
-   "channelName": "",
+   "title": "I Built Dagobah in Lego",
+   "channelName": "1by1Brick",
    "addedAt": "2026-09-06T11:53:00.000Z"
   },
   {
@@ -69,7 +69,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "CSMNUJLel6M",
    "title": "Mini Minas Tirith — Full LEGO Build Timelapse (Micro MOC)",
-   "channelName": "",
+   "channelName": "LEGO Ksunder Cage | Puzzleksu ",
    "addedAt": "2026-09-06T11:52:00.000Z"
   },
   {
@@ -77,7 +77,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "E_KKpWIoQJc",
    "title": "Black Falcon LEGO Castle MOC Build Timelapse!!!",
-   "channelName": "",
+   "channelName": "legoking71",
    "addedAt": "2026-09-06T11:51:00.000Z"
   },
   {
@@ -133,7 +133,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "_Ew8GYlpicc",
    "title": "How To Build A Very Secure LEGO Lock | Full Tutorial | Mechanism",
-   "channelName": "",
+   "channelName": "SW BricksWorks",
    "addedAt": "2026-09-06T11:44:00.000Z"
   },
   {
@@ -141,7 +141,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "F_tgY8hzulo",
    "title": "A simple working Lego Lock",
-   "channelName": "",
+   "channelName": "2in1 Bricking",
    "addedAt": "2026-09-06T11:43:00.000Z"
   },
   {
@@ -149,7 +149,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "WfQPGITndD8",
    "title": "How To Build A Working Lego Safe - with Real Combination Lock!",
-   "channelName": "",
+   "channelName": "LEGOParadise",
    "addedAt": "2026-09-06T11:42:00.000Z"
   },
   {
@@ -157,7 +157,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "io1VGK-Lack",
    "title": "LEGO fully functional combination lock - easy to build - full tutorial",
-   "channelName": "",
+   "channelName": "PuzzLEGO",
    "addedAt": "2026-09-06T11:41:00.000Z"
   },
   {
@@ -165,7 +165,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "PfMQ_WaZnIw",
    "title": "How to make a LEGO LOCK",
-   "channelName": "",
+   "channelName": "BRIKLE - Lego Instructions",
    "addedAt": "2026-09-06T11:40:00.000Z"
   },
   {
@@ -173,7 +173,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "2K5nRhre0Hc",
    "title": "How To Build A Working Lego Vault Door - with Combination Lock!",
-   "channelName": "",
+   "channelName": "LEGOParadise",
    "addedAt": "2026-09-06T11:39:00.000Z"
   },
   {
@@ -181,7 +181,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "X8W5qiv1SjM",
    "title": "Lego Lock ONLY 50 Pieces!",
-   "channelName": "",
+   "channelName": "Lego l325",
    "addedAt": "2026-09-06T11:38:00.000Z"
   },
   {
@@ -189,31 +189,31 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "dSEsqVezzaY",
    "title": "[Tutorial] How to Build an Easy Working LEGO Combination Lock",
-   "channelName": "",
+   "channelName": "LEGOMechanism",
    "addedAt": "2026-09-06T11:37:00.000Z"
   },
   {
    "id": "sample-6t_J12krWxU",
    "type": "video",
    "youtubeId": "6t_J12krWxU",
-   "title": "How to build a working Lego Safe",
-   "channelName": "",
+   "title": "How to build a working mini Safe",
+   "channelName": "JD Brick Productions",
    "addedAt": "2026-09-06T11:36:00.000Z"
   },
   {
    "id": "sample-OjDKSWCrWeU",
    "type": "video",
    "youtubeId": "OjDKSWCrWeU",
-   "title": "How to build a working Lego Combination Safe",
-   "channelName": "",
+   "title": "How to build a working mini Combination Safe",
+   "channelName": "JD Brick Productions",
    "addedAt": "2026-09-06T11:35:00.000Z"
   },
   {
    "id": "sample-ROknAD2e_98",
    "type": "video",
    "youtubeId": "ROknAD2e_98",
-   "title": "How to Build a working Lego Button Safe",
-   "channelName": "",
+   "title": "How to Build a working Button Safe",
+   "channelName": "JD Brick Productions",
    "addedAt": "2026-09-06T11:34:00.000Z"
   },
   {
@@ -221,7 +221,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "7guT-DTjHWs",
    "title": "I built a WORKING LEGO SAFE with CARD LOCK",
-   "channelName": "",
+   "channelName": "BRIKLE - Lego Instructions",
    "addedAt": "2026-09-06T11:33:00.000Z"
   },
   {
@@ -229,15 +229,15 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "CjMZZj1QS0Y",
    "title": "Silly Miss Lily and Paisley Mine for Gemstones & Break Open Geodes | Fun Science for Kids",
-   "channelName": "",
+   "channelName": "Paisley's Corner - Educational Videos for Kids",
    "addedAt": "2026-09-06T11:32:00.000Z"
   },
   {
    "id": "sample-SlM-aUBi938",
    "type": "video",
    "youtubeId": "SlM-aUBi938",
-   "title": "Gem Mining For Kids! ROCK and GEMSTONE DIG!",
-   "channelName": "",
+   "title": "Gem Mining For Kids! ROCK and GEMSTONE DIG! Fun Learning About Rocks and Gemstones by Digging",
+   "channelName": "Razzy World",
    "addedAt": "2026-09-06T11:31:00.000Z"
   },
   {
@@ -245,23 +245,23 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "2xGVQUWBMwY",
    "title": "Gem Mining with Handyman Hal | The Awesome Song for Kids",
-   "channelName": "Handyman Hal",
+   "channelName": "Handyman Hal - Music for Kids",
    "addedAt": "2026-09-06T11:30:00.000Z"
   },
   {
    "id": "sample-1Pfu-s4j7Yk",
    "type": "video",
    "youtubeId": "1Pfu-s4j7Yk",
-   "title": "Gemstone Digging | Discovery Mega Gemstone Dig Kit",
-   "channelName": "",
+   "title": "Gemstone Digging | Discovery Mega Gemstone Dig Kit | Fun Science for Toddlers & Kids - @FunDayKid",
+   "channelName": "FunDay Kid",
    "addedAt": "2026-09-06T11:29:00.000Z"
   },
   {
    "id": "sample-PsHdL6v46zU",
    "type": "video",
    "youtubeId": "PsHdL6v46zU",
-   "title": "Gem Mining For Kids! Smithsonian ROCK and GEM DIG!",
-   "channelName": "",
+   "title": "Gem Mining For Kids!  Smithsonian ROCK and GEM DIG!  FUN LEARNING About Gemstones & Rocks",
+   "channelName": "Kid Friendly TV",
    "addedAt": "2026-09-06T11:28:00.000Z"
   },
   {
@@ -269,15 +269,15 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "9c5JpG8X2zo",
    "title": "Cracking Amethyst Geodes Open! (Crystals Inside)",
-   "channelName": "",
+   "channelName": "Taylor's Rocksmithery",
    "addedAt": "2026-09-06T11:27:00.000Z"
   },
   {
    "id": "sample-G6ISiYs7LFw",
    "type": "video",
    "youtubeId": "G6ISiYs7LFw",
-   "title": "Cracking Open Geodes (You Won't Believe What's Inside)",
-   "channelName": "",
+   "title": "Cracking Open Geodes (You Won’t Believe What’s Inside)",
+   "channelName": "Josue's Exotics",
    "addedAt": "2026-09-06T11:26:00.000Z"
   },
   {
@@ -285,7 +285,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "XHKp5GLJD28",
    "title": "Cracking 10 geodes open to see what lives inside!",
-   "channelName": "",
+   "channelName": "growithjessie",
    "addedAt": "2026-09-06T11:25:00.000Z"
   },
   {
@@ -293,15 +293,15 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "ojNUMp6nfnk",
    "title": "Finding & Cracking CRAZY Kentucky Geodes With INCREDIBLE Crystals Inside!",
-   "channelName": "",
+   "channelName": "WILDKYLE",
    "addedAt": "2026-09-06T11:24:00.000Z"
   },
   {
    "id": "sample-dmBfvAR16pA",
    "type": "video",
    "youtubeId": "dmBfvAR16pA",
-   "title": "Finding Garnet, Ruby & Sapphire Gems at this Crystal Mine",
-   "channelName": "",
+   "title": "Finding Garnet, Ruby & Sapphire Gems at this Crystal Mine in North Carolina",
+   "channelName": "Crystals of Arkansas",
    "addedAt": "2026-09-06T11:23:00.000Z"
   },
   {
@@ -309,7 +309,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "uelhGslxwwc",
    "title": "Gold Panning & Finding Gold Nuggets!",
-   "channelName": "",
+   "channelName": "911 EXPLORATION CORP",
    "addedAt": "2026-09-06T11:22:00.000Z"
   },
   {
@@ -317,7 +317,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "cAExPbxAdHk",
    "title": "Panning for HUGE GOLD NUGGETS!",
-   "channelName": "",
+   "channelName": "renovate",
    "addedAt": "2026-09-06T11:21:00.000Z"
   },
   {
@@ -325,7 +325,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "T4ooIQrrkGU",
    "title": "Huge Gold Nugget Found Panning!",
-   "channelName": "",
+   "channelName": "Vo-Gus Prospecting",
    "addedAt": "2026-09-06T11:20:00.000Z"
   },
   {
@@ -333,7 +333,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "9JqhRUue1lA",
    "title": "Gold Panning, Pickers and Nuggets found!",
-   "channelName": "",
+   "channelName": "Dan Hurd (Dan Hurd Prospecting)",
    "addedAt": "2026-09-06T11:19:00.000Z"
   },
   {
@@ -341,7 +341,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "KFFeeVIvcto",
    "title": "I Found A Patch Of GOLD Nuggets In Remote River!",
-   "channelName": "",
+   "channelName": "PioneerPauly",
    "addedAt": "2026-09-06T11:18:00.000Z"
   },
   {
@@ -349,7 +349,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "JRN0ncn2sDM",
    "title": "Hunting for Buried Treasure at an Unexplored Metal Detecting Spot",
-   "channelName": "",
+   "channelName": "Aquachigger",
    "addedAt": "2026-09-06T11:17:00.000Z"
   },
   {
@@ -357,7 +357,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "xptYNLGnY4c",
    "title": "Found Treasure Everywhere at a Forgotten Homestead! (Metal Detecting)",
-   "channelName": "",
+   "channelName": "nuggetnoggin",
    "addedAt": "2026-09-06T11:16:00.000Z"
   },
   {
@@ -365,7 +365,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "ZxjrgRoNTwQ",
    "title": "HUGE COIN Spill Found Buried in the Woods! (Metal Detecting for Treasure)",
-   "channelName": "",
+   "channelName": "nuggetnoggin",
    "addedAt": "2026-09-06T11:15:00.000Z"
   },
   {
@@ -373,7 +373,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "V6ruPdc2IeQ",
    "title": "The Treasure Hunt Adventure! 💎⛏ /// Danny Go! Full Episodes for Kids",
-   "channelName": "Danny Go!",
+   "channelName": "Danny Go! Extras",
    "addedAt": "2026-09-06T11:14:00.000Z"
   },
   {
@@ -381,14 +381,14 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "TEPSZ9p7TM8",
    "title": "TREASURE HUNT ADVENTURE with CALEB and MOM! We found a buried treasure chest!",
-   "channelName": "",
+   "channelName": "Caleb Kids Show",
    "addedAt": "2026-09-06T11:13:00.000Z"
   },
   {
    "id": "sample-ohjwyFXH5KY",
    "type": "video",
    "youtubeId": "ohjwyFXH5KY",
-   "title": "Checking your Smoke Alarms! 🔥 Fireman Sam | Safe with Sam: Home",
+   "title": "Checking your Smoke Alarms! 🔥 Fireman Sam | Safe with Sam: Home | Safety Cartoons for Kids",
    "channelName": "Fireman Sam",
    "addedAt": "2026-09-06T11:12:00.000Z"
   },
@@ -397,14 +397,14 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "8OVHhkqpZf8",
    "title": "Fire Safety Video for Kids with SteveSongs & Sparky the Fire Dog",
-   "channelName": "NFPA Kids",
+   "channelName": "We Are Teachers",
    "addedAt": "2026-09-06T11:11:00.000Z"
   },
   {
    "id": "sample-gHrPLeKzLg4",
    "type": "video",
    "youtubeId": "gHrPLeKzLg4",
-   "title": "Sparky Says Join My Fire Safety Club",
+   "title": "Sparky Says  Join My Fire Safety Club Video",
    "channelName": "NFPA Kids",
    "addedAt": "2026-09-06T11:10:00.000Z"
   },
@@ -412,16 +412,16 @@ window.SAMPLE_LIBRARY = {
    "id": "sample-AWHGdWOI4kw",
    "type": "video",
    "youtubeId": "AWHGdWOI4kw",
-   "title": "Fire Safety for Kids | Fire Prevention Week | Fire Drill at School",
-   "channelName": "Twinkl USA",
+   "title": "🔥 Fire Safety for Kids | Fire Prevention Week | Fire Drill at School | Twinkl USA",
+   "channelName": "Twinkl Teaching Resources - United States",
    "addedAt": "2026-09-06T11:09:00.000Z"
   },
   {
    "id": "sample-5SJXnDSq6HA",
    "type": "video",
    "youtubeId": "5SJXnDSq6HA",
-   "title": "Fire Safety for Kids | Fire Drill at School | Fire Safety Rules for Kids!",
-   "channelName": "",
+   "title": "Fire Safety for Kids | Fire Drill at School | 🔥 Fire Safety Rules for Kids!",
+   "channelName": "Twinkl Educational Publishing",
    "addedAt": "2026-09-06T11:08:00.000Z"
   },
   {
@@ -429,7 +429,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "YDiiUN7polo",
    "title": "Fire Alarm Test #57",
-   "channelName": "",
+   "channelName": "SafeTech",
    "addedAt": "2026-09-06T11:07:00.000Z"
   },
   {
@@ -437,7 +437,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "HOaRrpEp_jQ",
    "title": "ADT Unimode 10UD Fire Alarm System Test 23 | SpectrAlert Loudness",
-   "channelName": "",
+   "channelName": "S.E.R. Safety",
    "addedAt": "2026-09-06T11:06:00.000Z"
   },
   {
@@ -445,15 +445,15 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "R97nR9NqbKk",
    "title": "1990s Simplex Fire Alarm Testing | Kidde System Test 25",
-   "channelName": "",
+   "channelName": "S.E.R. Safety",
    "addedAt": "2026-09-06T11:05:00.000Z"
   },
   {
    "id": "sample-dISFhtLhuVQ",
    "type": "video",
    "youtubeId": "dISFhtLhuVQ",
-   "title": "What a REAL Fire Alarm Test Looks Like",
-   "channelName": "",
+   "title": "🔥 What a REAL Fire Alarm Test Looks Like 🚨",
+   "channelName": "The Safety Q",
    "addedAt": "2026-09-06T11:04:00.000Z"
   },
   {
@@ -461,7 +461,7 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "EKKNJRvlVNk",
    "title": "Fire Alarms: How They Work and Why You Need Them",
-   "channelName": "",
+   "channelName": "Total Prepare Inc.",
    "addedAt": "2026-09-06T11:03:00.000Z"
   },
   {
@@ -469,39 +469,39 @@ window.SAMPLE_LIBRARY = {
    "type": "video",
    "youtubeId": "OWuzt0tlLJg",
    "title": "How Do Smoke Detectors Work? | SafeWise",
-   "channelName": "",
+   "channelName": "Safewise.com",
    "addedAt": "2026-09-06T11:02:00.000Z"
   },
   {
    "id": "sample-33Jo9zSzkmU",
    "type": "video",
    "youtubeId": "33Jo9zSzkmU",
-   "title": "What's Inside a Fire Truck? Blippi and Meekah Visit a Fire Station!",
-   "channelName": "Blippi",
+   "title": "What’s Inside a Fire Truck? 🚒 Blippi and Meekah Visit a Fire Station! | Educational Videos for Kids",
+   "channelName": "Blippi - Educational Videos for Kids",
    "addedAt": "2026-09-06T11:01:00.000Z"
   },
   {
    "id": "sample-soOWbWcuuxQ",
    "type": "video",
    "youtubeId": "soOWbWcuuxQ",
-   "title": "Blippi Learns At The Fire Station | Fire Engine and Fire Station Tour For Kids",
-   "channelName": "Blippi",
+   "title": "Blippi Learns At The Fire Station | Fire Engine and Fire Station Tour For Kids | Blippi Videos",
+   "channelName": "Cartoon Clubhouse - Kids Songs",
    "addedAt": "2026-09-06T11:00:00.000Z"
   },
   {
    "id": "sample-RfgaYO2kKw4",
    "type": "video",
    "youtubeId": "RfgaYO2kKw4",
-   "title": "STATION 8 FIRE HOUSE TOUR - Learn about Fire Stations, Firefighters, Fire Trucks and Tools!",
-   "channelName": "",
+   "title": "STATION 8 FIRE HOUSE TOUR - Learn about Fire Stations, Firefighters, Fire Trucks and Tools! FOR KIDS",
+   "channelName": "STATION 8",
    "addedAt": "2026-09-06T10:59:00.000Z"
   },
   {
    "id": "sample-srRZyJTiwlg",
    "type": "video",
    "youtubeId": "srRZyJTiwlg",
-   "title": "We Visit A Real Fire Station | Fire Trucks For Kids",
-   "channelName": "",
+   "title": "We Visit A Real Fire Station |  Fire Trucks For Kids",
+   "channelName": "ZIPITY ZAP - Educational Videos For Children",
    "addedAt": "2026-09-06T10:58:00.000Z"
   },
   {
@@ -1588,11 +1588,12 @@ window.SAMPLE_LIBRARY = {
  "videos": [
   {
    "youtubeId": "-KG3a29-af0",
-   "title": "Impossible LEGO Build That Can't Be Taken Apart!",
-   "channelName": "TD BRICKS",
+   "title": "Impossible LEGO Build That Can't Be Taken Apart! | TD BRICKS",
+   "channelName": "Slippy Entertainment",
    "sourceId": "sample--KG3a29-af0",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:59:00.000Z"
+   "addedAt": "2026-09-06T11:59:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "2-YjvEdGlfE",
@@ -1600,63 +1601,71 @@ window.SAMPLE_LIBRARY = {
    "channelName": "TD BRICKS",
    "sourceId": "sample-2-YjvEdGlfE",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:58:00.000Z"
+   "addedAt": "2026-09-06T11:58:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "LgkGlZ4_kIo",
    "title": "We Tested Illegal LEGO Builds (ft. TD Bricks)",
-   "channelName": "",
+   "channelName": "Brick Science",
    "sourceId": "sample-LgkGlZ4_kIo",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:57:00.000Z"
+   "addedAt": "2026-09-06T11:57:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "9aiEsfB5r60",
    "title": "Level 1 to 100 Lego Builds (ft. TD Bricks)",
-   "channelName": "",
+   "channelName": "Hafu Go",
    "sourceId": "sample-9aiEsfB5r60",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:56:00.000Z"
+   "addedAt": "2026-09-06T11:56:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "OmTSh-vEsZw",
    "title": "Building the Jedi Temple in 8 minutes! LEGO Star Wars MOC Timelapse",
-   "channelName": "",
+   "channelName": "Solid Brix Studios",
    "sourceId": "sample-OmTSh-vEsZw",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:55:00.000Z"
+   "addedAt": "2026-09-06T11:55:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "MzlGQJ2q7FY",
    "title": "Building Daro in 6 minutes! LEGO Star Wars MOC Timelapse",
-   "channelName": "",
+   "channelName": "Solid Brix Studios",
    "sourceId": "sample-MzlGQJ2q7FY",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:54:00.000Z"
+   "addedAt": "2026-09-06T11:54:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "01wokJs1MVE",
-   "title": "Building Dagobah in 5 Minutes! Lego Star Wars MOC Timelapse",
-   "channelName": "",
+   "title": "I Built Dagobah in Lego",
+   "channelName": "1by1Brick",
    "sourceId": "sample-01wokJs1MVE",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:53:00.000Z"
+   "addedAt": "2026-09-06T11:53:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "CSMNUJLel6M",
    "title": "Mini Minas Tirith — Full LEGO Build Timelapse (Micro MOC)",
-   "channelName": "",
+   "channelName": "LEGO Ksunder Cage | Puzzleksu ",
    "sourceId": "sample-CSMNUJLel6M",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:52:00.000Z"
+   "addedAt": "2026-09-06T11:52:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "E_KKpWIoQJc",
    "title": "Black Falcon LEGO Castle MOC Build Timelapse!!!",
-   "channelName": "",
+   "channelName": "legoking71",
    "sourceId": "sample-E_KKpWIoQJc",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:51:00.000Z"
+   "addedAt": "2026-09-06T11:51:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "gmC95vho8_A",
@@ -1664,7 +1673,8 @@ window.SAMPLE_LIBRARY = {
    "channelName": "Beyond the Brick",
    "sourceId": "sample-gmC95vho8_A",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:50:00.000Z"
+   "addedAt": "2026-09-06T11:50:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "RzkNtnAq-MU",
@@ -1672,7 +1682,8 @@ window.SAMPLE_LIBRARY = {
    "channelName": "Beyond the Brick",
    "sourceId": "sample-RzkNtnAq-MU",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:49:00.000Z"
+   "addedAt": "2026-09-06T11:49:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "N7w9RK4hWbc",
@@ -1680,7 +1691,8 @@ window.SAMPLE_LIBRARY = {
    "channelName": "Beyond the Brick",
    "sourceId": "sample-N7w9RK4hWbc",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:48:00.000Z"
+   "addedAt": "2026-09-06T11:48:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "nVxOaOoA1zk",
@@ -1688,7 +1700,8 @@ window.SAMPLE_LIBRARY = {
    "channelName": "Beyond the Brick",
    "sourceId": "sample-nVxOaOoA1zk",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:47:00.000Z"
+   "addedAt": "2026-09-06T11:47:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "T8Bc6rIKyzA",
@@ -1696,7 +1709,8 @@ window.SAMPLE_LIBRARY = {
    "channelName": "Beyond the Brick",
    "sourceId": "sample-T8Bc6rIKyzA",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:46:00.000Z"
+   "addedAt": "2026-09-06T11:46:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "Zcj-6KP0xkE",
@@ -1704,383 +1718,431 @@ window.SAMPLE_LIBRARY = {
    "channelName": "Beyond the Brick",
    "sourceId": "sample-Zcj-6KP0xkE",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:45:00.000Z"
+   "addedAt": "2026-09-06T11:45:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "_Ew8GYlpicc",
    "title": "How To Build A Very Secure LEGO Lock | Full Tutorial | Mechanism",
-   "channelName": "",
+   "channelName": "SW BricksWorks",
    "sourceId": "sample-_Ew8GYlpicc",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:44:00.000Z"
+   "addedAt": "2026-09-06T11:44:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "F_tgY8hzulo",
    "title": "A simple working Lego Lock",
-   "channelName": "",
+   "channelName": "2in1 Bricking",
    "sourceId": "sample-F_tgY8hzulo",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:43:00.000Z"
+   "addedAt": "2026-09-06T11:43:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "WfQPGITndD8",
    "title": "How To Build A Working Lego Safe - with Real Combination Lock!",
-   "channelName": "",
+   "channelName": "LEGOParadise",
    "sourceId": "sample-WfQPGITndD8",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:42:00.000Z"
+   "addedAt": "2026-09-06T11:42:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "io1VGK-Lack",
    "title": "LEGO fully functional combination lock - easy to build - full tutorial",
-   "channelName": "",
+   "channelName": "PuzzLEGO",
    "sourceId": "sample-io1VGK-Lack",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:41:00.000Z"
+   "addedAt": "2026-09-06T11:41:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "PfMQ_WaZnIw",
    "title": "How to make a LEGO LOCK",
-   "channelName": "",
+   "channelName": "BRIKLE - Lego Instructions",
    "sourceId": "sample-PfMQ_WaZnIw",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:40:00.000Z"
+   "addedAt": "2026-09-06T11:40:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "2K5nRhre0Hc",
    "title": "How To Build A Working Lego Vault Door - with Combination Lock!",
-   "channelName": "",
+   "channelName": "LEGOParadise",
    "sourceId": "sample-2K5nRhre0Hc",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:39:00.000Z"
+   "addedAt": "2026-09-06T11:39:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "X8W5qiv1SjM",
    "title": "Lego Lock ONLY 50 Pieces!",
-   "channelName": "",
+   "channelName": "Lego l325",
    "sourceId": "sample-X8W5qiv1SjM",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:38:00.000Z"
+   "addedAt": "2026-09-06T11:38:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "dSEsqVezzaY",
    "title": "[Tutorial] How to Build an Easy Working LEGO Combination Lock",
-   "channelName": "",
+   "channelName": "LEGOMechanism",
    "sourceId": "sample-dSEsqVezzaY",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:37:00.000Z"
+   "addedAt": "2026-09-06T11:37:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "6t_J12krWxU",
-   "title": "How to build a working Lego Safe",
-   "channelName": "",
+   "title": "How to build a working mini Safe",
+   "channelName": "JD Brick Productions",
    "sourceId": "sample-6t_J12krWxU",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:36:00.000Z"
+   "addedAt": "2026-09-06T11:36:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "OjDKSWCrWeU",
-   "title": "How to build a working Lego Combination Safe",
-   "channelName": "",
+   "title": "How to build a working mini Combination Safe",
+   "channelName": "JD Brick Productions",
    "sourceId": "sample-OjDKSWCrWeU",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:35:00.000Z"
+   "addedAt": "2026-09-06T11:35:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "ROknAD2e_98",
-   "title": "How to Build a working Lego Button Safe",
-   "channelName": "",
+   "title": "How to Build a working Button Safe",
+   "channelName": "JD Brick Productions",
    "sourceId": "sample-ROknAD2e_98",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:34:00.000Z"
+   "addedAt": "2026-09-06T11:34:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "7guT-DTjHWs",
    "title": "I built a WORKING LEGO SAFE with CARD LOCK",
-   "channelName": "",
+   "channelName": "BRIKLE - Lego Instructions",
    "sourceId": "sample-7guT-DTjHWs",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:33:00.000Z"
+   "addedAt": "2026-09-06T11:33:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "CjMZZj1QS0Y",
    "title": "Silly Miss Lily and Paisley Mine for Gemstones & Break Open Geodes | Fun Science for Kids",
-   "channelName": "",
+   "channelName": "Paisley's Corner - Educational Videos for Kids",
    "sourceId": "sample-CjMZZj1QS0Y",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:32:00.000Z"
+   "addedAt": "2026-09-06T11:32:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "SlM-aUBi938",
-   "title": "Gem Mining For Kids! ROCK and GEMSTONE DIG!",
-   "channelName": "",
+   "title": "Gem Mining For Kids! ROCK and GEMSTONE DIG! Fun Learning About Rocks and Gemstones by Digging",
+   "channelName": "Razzy World",
    "sourceId": "sample-SlM-aUBi938",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:31:00.000Z"
+   "addedAt": "2026-09-06T11:31:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "2xGVQUWBMwY",
    "title": "Gem Mining with Handyman Hal | The Awesome Song for Kids",
-   "channelName": "Handyman Hal",
+   "channelName": "Handyman Hal - Music for Kids",
    "sourceId": "sample-2xGVQUWBMwY",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:30:00.000Z"
+   "addedAt": "2026-09-06T11:30:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "1Pfu-s4j7Yk",
-   "title": "Gemstone Digging | Discovery Mega Gemstone Dig Kit",
-   "channelName": "",
+   "title": "Gemstone Digging | Discovery Mega Gemstone Dig Kit | Fun Science for Toddlers & Kids - @FunDayKid",
+   "channelName": "FunDay Kid",
    "sourceId": "sample-1Pfu-s4j7Yk",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:29:00.000Z"
+   "addedAt": "2026-09-06T11:29:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "PsHdL6v46zU",
-   "title": "Gem Mining For Kids! Smithsonian ROCK and GEM DIG!",
-   "channelName": "",
+   "title": "Gem Mining For Kids!  Smithsonian ROCK and GEM DIG!  FUN LEARNING About Gemstones & Rocks",
+   "channelName": "Kid Friendly TV",
    "sourceId": "sample-PsHdL6v46zU",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:28:00.000Z"
+   "addedAt": "2026-09-06T11:28:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "9c5JpG8X2zo",
    "title": "Cracking Amethyst Geodes Open! (Crystals Inside)",
-   "channelName": "",
+   "channelName": "Taylor's Rocksmithery",
    "sourceId": "sample-9c5JpG8X2zo",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:27:00.000Z"
+   "addedAt": "2026-09-06T11:27:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "G6ISiYs7LFw",
-   "title": "Cracking Open Geodes (You Won't Believe What's Inside)",
-   "channelName": "",
+   "title": "Cracking Open Geodes (You Won’t Believe What’s Inside)",
+   "channelName": "Josue's Exotics",
    "sourceId": "sample-G6ISiYs7LFw",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:26:00.000Z"
+   "addedAt": "2026-09-06T11:26:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "XHKp5GLJD28",
    "title": "Cracking 10 geodes open to see what lives inside!",
-   "channelName": "",
+   "channelName": "growithjessie",
    "sourceId": "sample-XHKp5GLJD28",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:25:00.000Z"
+   "addedAt": "2026-09-06T11:25:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "ojNUMp6nfnk",
    "title": "Finding & Cracking CRAZY Kentucky Geodes With INCREDIBLE Crystals Inside!",
-   "channelName": "",
+   "channelName": "WILDKYLE",
    "sourceId": "sample-ojNUMp6nfnk",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:24:00.000Z"
+   "addedAt": "2026-09-06T11:24:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "dmBfvAR16pA",
-   "title": "Finding Garnet, Ruby & Sapphire Gems at this Crystal Mine",
-   "channelName": "",
+   "title": "Finding Garnet, Ruby & Sapphire Gems at this Crystal Mine in North Carolina",
+   "channelName": "Crystals of Arkansas",
    "sourceId": "sample-dmBfvAR16pA",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:23:00.000Z"
+   "addedAt": "2026-09-06T11:23:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "uelhGslxwwc",
    "title": "Gold Panning & Finding Gold Nuggets!",
-   "channelName": "",
+   "channelName": "911 EXPLORATION CORP",
    "sourceId": "sample-uelhGslxwwc",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:22:00.000Z"
+   "addedAt": "2026-09-06T11:22:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "cAExPbxAdHk",
    "title": "Panning for HUGE GOLD NUGGETS!",
-   "channelName": "",
+   "channelName": "renovate",
    "sourceId": "sample-cAExPbxAdHk",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:21:00.000Z"
+   "addedAt": "2026-09-06T11:21:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "T4ooIQrrkGU",
    "title": "Huge Gold Nugget Found Panning!",
-   "channelName": "",
+   "channelName": "Vo-Gus Prospecting",
    "sourceId": "sample-T4ooIQrrkGU",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:20:00.000Z"
+   "addedAt": "2026-09-06T11:20:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "9JqhRUue1lA",
    "title": "Gold Panning, Pickers and Nuggets found!",
-   "channelName": "",
+   "channelName": "Dan Hurd (Dan Hurd Prospecting)",
    "sourceId": "sample-9JqhRUue1lA",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:19:00.000Z"
+   "addedAt": "2026-09-06T11:19:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "KFFeeVIvcto",
    "title": "I Found A Patch Of GOLD Nuggets In Remote River!",
-   "channelName": "",
+   "channelName": "PioneerPauly",
    "sourceId": "sample-KFFeeVIvcto",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:18:00.000Z"
+   "addedAt": "2026-09-06T11:18:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "JRN0ncn2sDM",
    "title": "Hunting for Buried Treasure at an Unexplored Metal Detecting Spot",
-   "channelName": "",
+   "channelName": "Aquachigger",
    "sourceId": "sample-JRN0ncn2sDM",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:17:00.000Z"
+   "addedAt": "2026-09-06T11:17:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "xptYNLGnY4c",
    "title": "Found Treasure Everywhere at a Forgotten Homestead! (Metal Detecting)",
-   "channelName": "",
+   "channelName": "nuggetnoggin",
    "sourceId": "sample-xptYNLGnY4c",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:16:00.000Z"
+   "addedAt": "2026-09-06T11:16:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "ZxjrgRoNTwQ",
    "title": "HUGE COIN Spill Found Buried in the Woods! (Metal Detecting for Treasure)",
-   "channelName": "",
+   "channelName": "nuggetnoggin",
    "sourceId": "sample-ZxjrgRoNTwQ",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:15:00.000Z"
+   "addedAt": "2026-09-06T11:15:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "V6ruPdc2IeQ",
    "title": "The Treasure Hunt Adventure! 💎⛏ /// Danny Go! Full Episodes for Kids",
-   "channelName": "Danny Go!",
+   "channelName": "Danny Go! Extras",
    "sourceId": "sample-V6ruPdc2IeQ",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:14:00.000Z"
+   "addedAt": "2026-09-06T11:14:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "TEPSZ9p7TM8",
    "title": "TREASURE HUNT ADVENTURE with CALEB and MOM! We found a buried treasure chest!",
-   "channelName": "",
+   "channelName": "Caleb Kids Show",
    "sourceId": "sample-TEPSZ9p7TM8",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:13:00.000Z"
+   "addedAt": "2026-09-06T11:13:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "ohjwyFXH5KY",
-   "title": "Checking your Smoke Alarms! 🔥 Fireman Sam | Safe with Sam: Home",
+   "title": "Checking your Smoke Alarms! 🔥 Fireman Sam | Safe with Sam: Home | Safety Cartoons for Kids",
    "channelName": "Fireman Sam",
    "sourceId": "sample-ohjwyFXH5KY",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:12:00.000Z"
+   "addedAt": "2026-09-06T11:12:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "8OVHhkqpZf8",
    "title": "Fire Safety Video for Kids with SteveSongs & Sparky the Fire Dog",
-   "channelName": "NFPA Kids",
+   "channelName": "We Are Teachers",
    "sourceId": "sample-8OVHhkqpZf8",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:11:00.000Z"
+   "addedAt": "2026-09-06T11:11:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "gHrPLeKzLg4",
-   "title": "Sparky Says Join My Fire Safety Club",
+   "title": "Sparky Says  Join My Fire Safety Club Video",
    "channelName": "NFPA Kids",
    "sourceId": "sample-gHrPLeKzLg4",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:10:00.000Z"
+   "addedAt": "2026-09-06T11:10:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "AWHGdWOI4kw",
-   "title": "Fire Safety for Kids | Fire Prevention Week | Fire Drill at School",
-   "channelName": "Twinkl USA",
+   "title": "🔥 Fire Safety for Kids | Fire Prevention Week | Fire Drill at School | Twinkl USA",
+   "channelName": "Twinkl Teaching Resources - United States",
    "sourceId": "sample-AWHGdWOI4kw",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:09:00.000Z"
+   "addedAt": "2026-09-06T11:09:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "5SJXnDSq6HA",
-   "title": "Fire Safety for Kids | Fire Drill at School | Fire Safety Rules for Kids!",
-   "channelName": "",
+   "title": "Fire Safety for Kids | Fire Drill at School | 🔥 Fire Safety Rules for Kids!",
+   "channelName": "Twinkl Educational Publishing",
    "sourceId": "sample-5SJXnDSq6HA",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:08:00.000Z"
+   "addedAt": "2026-09-06T11:08:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "YDiiUN7polo",
    "title": "Fire Alarm Test #57",
-   "channelName": "",
+   "channelName": "SafeTech",
    "sourceId": "sample-YDiiUN7polo",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:07:00.000Z"
+   "addedAt": "2026-09-06T11:07:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "HOaRrpEp_jQ",
    "title": "ADT Unimode 10UD Fire Alarm System Test 23 | SpectrAlert Loudness",
-   "channelName": "",
+   "channelName": "S.E.R. Safety",
    "sourceId": "sample-HOaRrpEp_jQ",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:06:00.000Z"
+   "addedAt": "2026-09-06T11:06:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "R97nR9NqbKk",
    "title": "1990s Simplex Fire Alarm Testing | Kidde System Test 25",
-   "channelName": "",
+   "channelName": "S.E.R. Safety",
    "sourceId": "sample-R97nR9NqbKk",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:05:00.000Z"
+   "addedAt": "2026-09-06T11:05:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "dISFhtLhuVQ",
-   "title": "What a REAL Fire Alarm Test Looks Like",
-   "channelName": "",
+   "title": "🔥 What a REAL Fire Alarm Test Looks Like 🚨",
+   "channelName": "The Safety Q",
    "sourceId": "sample-dISFhtLhuVQ",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:04:00.000Z"
+   "addedAt": "2026-09-06T11:04:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "EKKNJRvlVNk",
    "title": "Fire Alarms: How They Work and Why You Need Them",
-   "channelName": "",
+   "channelName": "Total Prepare Inc.",
    "sourceId": "sample-EKKNJRvlVNk",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:03:00.000Z"
+   "addedAt": "2026-09-06T11:03:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "OWuzt0tlLJg",
    "title": "How Do Smoke Detectors Work? | SafeWise",
-   "channelName": "",
+   "channelName": "Safewise.com",
    "sourceId": "sample-OWuzt0tlLJg",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:02:00.000Z"
+   "addedAt": "2026-09-06T11:02:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "33Jo9zSzkmU",
-   "title": "What's Inside a Fire Truck? Blippi and Meekah Visit a Fire Station!",
-   "channelName": "Blippi",
+   "title": "What’s Inside a Fire Truck? 🚒 Blippi and Meekah Visit a Fire Station! | Educational Videos for Kids",
+   "channelName": "Blippi - Educational Videos for Kids",
    "sourceId": "sample-33Jo9zSzkmU",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:01:00.000Z"
+   "addedAt": "2026-09-06T11:01:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "soOWbWcuuxQ",
-   "title": "Blippi Learns At The Fire Station | Fire Engine and Fire Station Tour For Kids",
-   "channelName": "Blippi",
+   "title": "Blippi Learns At The Fire Station | Fire Engine and Fire Station Tour For Kids | Blippi Videos",
+   "channelName": "Cartoon Clubhouse - Kids Songs",
    "sourceId": "sample-soOWbWcuuxQ",
    "publishedAt": "",
-   "addedAt": "2026-09-06T11:00:00.000Z"
+   "addedAt": "2026-09-06T11:00:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "RfgaYO2kKw4",
-   "title": "STATION 8 FIRE HOUSE TOUR - Learn about Fire Stations, Firefighters, Fire Trucks and Tools!",
-   "channelName": "",
+   "title": "STATION 8 FIRE HOUSE TOUR - Learn about Fire Stations, Firefighters, Fire Trucks and Tools! FOR KIDS",
+   "channelName": "STATION 8",
    "sourceId": "sample-RfgaYO2kKw4",
    "publishedAt": "",
-   "addedAt": "2026-09-06T10:59:00.000Z"
+   "addedAt": "2026-09-06T10:59:00.000Z",
+   "playable": true
   },
   {
    "youtubeId": "srRZyJTiwlg",
-   "title": "We Visit A Real Fire Station | Fire Trucks For Kids",
-   "channelName": "",
+   "title": "We Visit A Real Fire Station |  Fire Trucks For Kids",
+   "channelName": "ZIPITY ZAP - Educational Videos For Children",
    "sourceId": "sample-srRZyJTiwlg",
    "publishedAt": "",
-   "addedAt": "2026-09-06T10:58:00.000Z"
+   "addedAt": "2026-09-06T10:58:00.000Z",
+   "playable": true
   }
  ]
 };

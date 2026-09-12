@@ -42,7 +42,7 @@
   }
 
   function visibleVideos() {
-    return state.videos.filter(function (v) { return !v.hidden; })
+    return state.videos.filter(function (v) { return !v.hidden && !v.unavailable; })
       .sort(function (a, b) { return sortKey(b).localeCompare(sortKey(a)); });
   }
 
@@ -477,7 +477,7 @@
       if (token !== mountToken || !host) return; // navigated away
       var iframe = buildPlayerIframe(v, true);
       host.replaceWith(iframe);
-      player = new window.YT.Player(iframe, { events: { onStateChange: onPlayerStateChange } });
+      player = new window.YT.Player(iframe, { events: { onStateChange: onPlayerStateChange, onError: onPlayerError } });
     }).catch(function () {
       // No API (offline, blocked): plain embed without queue/end-screen handling.
       var host = root.querySelector('#yt-player');
@@ -503,6 +503,18 @@
     showNowPlaying(v);
     player.loadVideoById(v.youtubeId);
     return true;
+  }
+
+  /* 100 = removed/private, 101/150 = embedding not allowed. Mark the video
+     so it isn't offered again and move on to the next recommendation. */
+  function onPlayerError(e) {
+    if (!player || [100, 101, 150].indexOf(e.data) === -1) return;
+    var v = findVideo(session.currentVideoId);
+    if (v) { v.unavailable = true; v.playable = false; persist(); }
+    var next = recommendedVideos()[0];
+    if (next && playInPlace(next)) return;
+    destroyPlayer();
+    showPlayerScreen('<div class="end-title">That video can’t be played here</div>');
   }
 
   function onPlayerStateChange(e) {
@@ -725,14 +737,15 @@
   function sourceRow(s) {
     var vids = state.videos.filter(function (v) { return v.sourceId === s.id; });
     var hiddenCount = vids.filter(function (v) { return v.hidden; }).length;
+    var unplayableCount = vids.filter(function (v) { return v.unavailable; }).length;
     var thumb = s.thumbnail || (s.type === 'video' ? YTH.thumbnailUrl(s.youtubeId) : '');
     var html = '<li class="source">' +
       '<div class="source-main">' +
         '<div class="source-thumb ' + (s.type === 'channel' ? 'round' : '') + '">' + (thumb ? '<img src="' + esc(thumb) + '" alt="">' : '') + '</div>' +
         '<div class="source-text">' +
-          '<div class="source-title">' + esc(s.title) + ' <span class="badge">' + (s.type === 'channel' ? 'Channel' : 'Video') + '</span></div>' +
+          '<div class="source-title">' + esc(s.title) + ' <span class="badge">' + (s.type === 'channel' ? 'Channel' : 'Video') + '</span>' + (s.type === 'video' && vids[0] && vids[0].unavailable ? ' <span class="badge badge-warn">Can’t play</span>' : '') + '</div>' +
           '<div class="muted small">' + (s.type === 'channel'
-            ? vids.length + ' videos' + (hiddenCount ? ' · ' + hiddenCount + ' hidden' : '') + (s.lastSyncedAt ? ' · updated ' + formatDate(s.lastSyncedAt) : '')
+            ? vids.length + ' videos' + (hiddenCount ? ' · ' + hiddenCount + ' hidden' : '') + (unplayableCount ? ' · ' + unplayableCount + ' can’t play' : '') + (s.lastSyncedAt ? ' · updated ' + formatDate(s.lastSyncedAt) : '')
             : esc(s.channelName) + ' · added ' + formatDate(s.addedAt)) + '</div>' +
         '</div>' +
         '<div class="source-actions">' +
@@ -743,11 +756,11 @@
     if (s.type === 'channel' && vids.length) {
       html += '<details class="source-videos" data-details="' + esc(s.id) + '"' + (session.open[s.id] ? ' open' : '') + '><summary>Show videos (tap a video to hide or show it)</summary><ul>' +
         vids.sort(function (a, b) { return sortKey(b).localeCompare(sortKey(a)); }).map(function (v) {
-          return '<li class="' + (v.hidden ? 'is-hidden' : '') + '">' +
-            '<button class="video-toggle" data-action="toggle-hidden" data-video="' + esc(v.youtubeId) + '" aria-pressed="' + (v.hidden ? 'true' : 'false') + '">' +
+          return '<li class="' + (v.hidden || v.unavailable ? 'is-hidden' : '') + '">' +
+            '<button class="video-toggle" data-action="toggle-hidden" data-video="' + esc(v.youtubeId) + '" aria-pressed="' + (v.hidden ? 'true' : 'false') + '"' + (v.unavailable ? ' disabled' : '') + '>' +
               '<img src="' + esc(YTH.thumbnailUrl(v.youtubeId, 'default')) + '" alt="">' +
               '<span class="video-toggle-title">' + esc(v.title) + '</span>' +
-              '<span class="badge">' + (v.hidden ? 'Hidden' : 'Shown') + '</span>' +
+              '<span class="badge' + (v.unavailable ? ' badge-warn' : '') + '">' + (v.unavailable ? 'Can’t play' : v.hidden ? 'Hidden' : 'Shown') + '</span>' +
             '</button></li>';
         }).join('') + '</ul></details>';
     }
@@ -919,8 +932,16 @@
     var lookup = key
       ? YTH.fetchVideoDetails(key, videoId).catch(function () { return null; })
       : Promise.resolve(null);
+    var playable = key
+      ? YTH.fetchPlayability(key, [videoId]).then(function (r) { return r[videoId]; }).catch(function () { return undefined; })
+      : Promise.resolve(undefined);
     return lookup.then(function (details) {
       return details || YTH.fetchVideoMetadata(videoId);
+    }).then(function (meta) {
+      return playable.then(function (ok) {
+        if (ok === false || (meta && meta.unavailable)) throw new Error('UNPLAYABLE');
+        return meta;
+      });
     }).then(function (meta) {
       var now = new Date().toISOString();
       var source = {
@@ -948,7 +969,8 @@
         : 'Added the video, but its title couldn’t be fetched. It will still play.');
     }).catch(function (err) {
       session.busy = false;
-      setStatus('error', 'Could not add that video: ' + err.message);
+      if (err.message === 'UNPLAYABLE') setStatus('error', 'That video can’t be played inside other sites (its owner disabled embedding, or it is private or age-restricted), so it wasn’t added.');
+      else setStatus('error', 'Could not add that video: ' + err.message);
     });
   }
 
@@ -1011,8 +1033,25 @@
         added++;
       });
       source.lastSyncedAt = new Date().toISOString();
-      return added;
+      return checkPlayability(state.videos.filter(function (v) { return v.sourceId === source.id; })).then(function () { return added; });
     });
+  }
+
+  /* Mark videos that can't play in an embed so kid mode never offers them.
+     Needs an API key; checks only videos not checked before. */
+  function checkPlayability(videos) {
+    var key = state.settings.apiKey;
+    var todo = (videos || state.videos).filter(function (v) { return v.playable === undefined; });
+    if (!key || !todo.length) return Promise.resolve(0);
+    return YTH.fetchPlayability(key, todo.map(function (v) { return v.youtubeId; })).then(function (result) {
+      var removed = 0;
+      todo.forEach(function (v) {
+        v.playable = result[v.youtubeId] !== false;
+        v.unavailable = !v.playable;
+        if (v.unavailable) removed++;
+      });
+      return removed;
+    }).catch(function () { return 0; });
   }
 
   function refreshSources(sources) {
@@ -1023,10 +1062,12 @@
     sources.forEach(function (s) {
       chain = chain.then(function () { return syncChannel(s).then(function (n) { total += n; }); });
     });
-    return chain.then(function () {
+    return chain.then(function () { return checkPlayability(); }).then(function () {
       persist();
       session.busy = false;
-      setStatus('ok', total ? 'Found ' + total + ' new ' + (total === 1 ? 'video' : 'videos') + '.' : 'No new videos.');
+      var unplayable = state.videos.filter(function (v) { return v.unavailable; }).length;
+      setStatus('ok', (total ? 'Found ' + total + ' new ' + (total === 1 ? 'video' : 'videos') + '.' : 'No new videos.') +
+        (unplayable ? ' ' + unplayable + ' that can’t be embedded are kept out of kid mode.' : ''));
     }).catch(function (err) {
       persist();
       session.busy = false;
@@ -1050,6 +1091,7 @@
       chain = chain.then(function () {
         return YTH.fetchVideoMetadata(v.youtubeId).then(function (meta) {
           seen++;
+          if (meta && meta.unavailable) { v.unavailable = true; v.playable = false; done++; return; }
           if (!meta) return;
           v.title = meta.title || v.title;
           v.channelName = meta.channelName || v.channelName;
@@ -1242,6 +1284,7 @@
         state.settings.useYouTubeSignIn = form.useYouTubeSignIn.checked;
         persist();
         setStatus('ok', 'Settings saved.', 'settings');
+        if (state.settings.apiKey) checkPlayability().then(function (n) { if (n) { persist(); setStatus('ok', n + (n === 1 ? ' video that can’t' : ' videos that can’t') + ' be embedded ' + (n === 1 ? 'is' : 'are') + ' now kept out of kid mode.', 'library'); } });
         break;
     }
   });

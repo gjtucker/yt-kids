@@ -165,7 +165,9 @@ kid mode):
 * **Channels your channels feature** – many channels list recommended
   channels on their own page. *Scan my channels* reads those for every
   approved channel (1 unit each) and ranks the ones you don't have yet by how
-  many of yours feature them. Add or dismiss each suggestion.
+  many of yours feature them. Each suggestion shows the channel's
+  description, subscriber and video counts, and three recent videos you can
+  preview in place before deciding. Add or dismiss each one.
 * **Load older** – a channel initially brings its latest 50 uploads; this
   button pulls the next 50, again and again, until the whole channel is in.
 

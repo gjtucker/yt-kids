@@ -889,6 +889,8 @@
         statusHtml('backup') +
       '</section>' +
 
+      previewOverlay() +
+
       '<section class="panel danger-zone">' +
         '<h2>Start over</h2>' +
         '<button class="btn btn-danger" data-action="reset">Delete all videos, settings and PIN</button>' +
@@ -1090,6 +1092,48 @@
 
   /* ---------------- explore (parent-only discovery) ---------------- */
 
+  function formatCount(n) {
+    if (n === null || n === undefined) return '';
+    if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M';
+    if (n >= 1e3) return (n / 1e3).toFixed(n >= 1e4 ? 0 : 1).replace(/\.0$/, '') + 'K';
+    return String(n);
+  }
+
+  /* A few recent uploads to show what a channel is like (1 unit). */
+  function fetchSamples(uploadsPlaylistId) {
+    return YTH.fetchChannelUploads(state.settings.apiKey, uploadsPlaylistId, 4).then(function (list) {
+      return list.slice(0, 3).map(function (v) { return { youtubeId: v.youtubeId, title: v.title }; });
+    }).catch(function () { return []; });
+  }
+
+  function samplesHtml(samples, loading) {
+    if (loading) return '<div class="muted small">Loading sample videos…</div>';
+    if (!samples || !samples.length) return '';
+    return '<div class="samples">' + samples.map(function (v) {
+      return '<button class="sample" data-action="preview" data-video="' + esc(v.youtubeId) + '" title="Preview">' +
+        '<img src="' + esc(YTH.thumbnailUrl(v.youtubeId, 'mqdefault')) + '" alt="">' +
+        '<span class="sample-title">' + esc(v.title) + '</span></button>';
+    }).join('') + '</div>';
+  }
+
+  function previewOverlay() {
+    var id = session.preview;
+    if (!id) return '';
+    var v = findVideo(id);
+    var title = v ? v.title : '';
+    if (!title) {
+      var lists = [].concat((state.explore.suggestions || []).map(function (c) { return c.samples || []; }), ((session.search && session.search.results) || []).map(function (r) { return r.samples || [r]; }));
+      lists.forEach(function (l) { l.forEach(function (x) { if (x.youtubeId === id) title = x.title; }); });
+    }
+    var src = (state.settings.useYouTubeSignIn ? 'https://www.youtube.com' : 'https://www.youtube-nocookie.com') + '/embed/' + id + '?rel=0&playsinline=1&autoplay=1';
+    return '<div class="preview-overlay" data-action="close-preview">' +
+      '<div class="preview-box" data-stop="1">' +
+        '<div class="preview-head"><span class="preview-title">' + esc(title) + '</span><button class="icon-btn" data-action="close-preview" aria-label="Close">✕</button></div>' +
+        '<div class="player"><iframe src="' + esc(src) + '" title="' + esc(title) + '" allow="autoplay; encrypted-media; fullscreen" allowfullscreen ' + (state.settings.blockYouTubeLinks !== false ? 'sandbox="allow-scripts allow-same-origin allow-presentation allow-storage-access-by-user-activation" ' : '') + 'referrerpolicy="strict-origin-when-cross-origin"></iframe></div>' +
+        (v ? '' : '<div class="btn-row preview-actions"><button class="btn btn-primary" data-action="add-video-id" data-id="' + esc(id) + '">Add this video</button></div>') +
+      '</div></div>';
+  }
+
   function approvedChannelIds() {
     var map = {};
     state.sources.forEach(function (src) { if (src.type === 'channel') map[src.youtubeId] = true; });
@@ -1123,12 +1167,24 @@
       return ids.length ? YTH.fetchChannelsInfo(key, ids) : [];
     }).then(function (infos) {
       state.explore.suggestions = infos.map(function (c) {
-        return { channelId: c.channelId, title: c.title, thumbnail: c.thumbnail, count: counts[c.channelId] || 0, by: (by[c.channelId] || []).slice(0, 4) };
+        return { channelId: c.channelId, title: c.title, thumbnail: c.thumbnail, description: (c.description || '').slice(0, 300), subscribers: c.subscribers, videoCount: c.videoCount,
+          uploadsPlaylistId: c.uploadsPlaylistId, count: counts[c.channelId] || 0, by: (by[c.channelId] || []).slice(0, 4), samples: null };
       }).sort(function (a, b) { return b.count - a.count || a.title.localeCompare(b.title); });
       state.explore.scannedAt = new Date().toISOString();
       persist();
-      session.busy = false;
-      setStatus(state.explore.suggestions.length ? 'ok' : 'info', state.explore.suggestions.length ? 'Found ' + state.explore.suggestions.length + ' channels featured by yours.' : 'Your channels don’t feature any channels you don’t already have.', 'explore');
+      var n = state.explore.suggestions.length;
+      setStatus(n ? 'info' : 'info', n ? 'Found ' + n + ' channels featured by yours. Fetching sample videos…' : 'Your channels don’t feature any channels you don’t already have.', 'explore');
+      // Sample videos for the suggestions that are shown (1 unit each).
+      var top = state.explore.suggestions.slice(0, 30);
+      var chain2 = Promise.resolve();
+      top.forEach(function (c) {
+        chain2 = chain2.then(function () { return fetchSamples(c.uploadsPlaylistId).then(function (list) { c.samples = list; }); });
+      });
+      return chain2.then(function () {
+        persist();
+        session.busy = false;
+        setStatus(n ? 'ok' : 'info', n ? 'Found ' + n + ' channels featured by yours.' : 'Your channels don’t feature any channels you don’t already have.', 'explore');
+      });
     }).catch(function (err) {
       session.busy = false;
       setStatus('error', err.message, 'explore');
@@ -1152,29 +1208,61 @@
     });
   }
 
+  function channelMeta(c) {
+    var bits = [];
+    if (c.subscribers !== null && c.subscribers !== undefined) bits.push(formatCount(c.subscribers) + ' subscribers');
+    if (c.videoCount) bits.push(formatCount(c.videoCount) + ' videos');
+    return bits.join(' · ');
+  }
+
   function suggestionRow(c) {
-    return '<li class="explore-item">' +
-      '<span class="avatar">' + (c.thumbnail ? '<img src="' + esc(c.thumbnail) + '" alt="">' : esc((c.title || '?').charAt(0))) + '</span>' +
-      '<div class="source-text"><div class="source-title">' + esc(c.title) + '</div>' +
-        '<div class="muted small">Featured by ' + esc(c.by.join(', ')) + (c.count > c.by.length ? ' and ' + (c.count - c.by.length) + ' more' : '') + '</div></div>' +
-      '<div class="source-actions">' +
-        '<button class="btn btn-small btn-primary" data-action="add-channel-id" data-id="' + esc(c.channelId) + '"' + (session.busy ? ' disabled' : '') + '>Add</button>' +
-        '<button class="btn btn-small" data-action="dismiss-suggestion" data-id="' + esc(c.channelId) + '" aria-label="Not interested">✕</button>' +
-      '</div></li>';
+    return '<li class="explore-item explore-channel">' +
+      '<div class="explore-main">' +
+        '<span class="avatar">' + (c.thumbnail ? '<img src="' + esc(c.thumbnail) + '" alt="">' : esc((c.title || '?').charAt(0))) + '</span>' +
+        '<div class="source-text"><div class="source-title">' + esc(c.title) + '</div>' +
+          '<div class="muted small">' + esc(channelMeta(c)) + '</div>' +
+          '<div class="muted small">Featured by ' + esc(c.by.join(', ')) + (c.count > c.by.length ? ' and ' + (c.count - c.by.length) + ' more' : '') + '</div></div>' +
+        '<div class="source-actions">' +
+          '<button class="btn btn-small btn-primary" data-action="add-channel-id" data-id="' + esc(c.channelId) + '"' + (session.busy ? ' disabled' : '') + '>Add</button>' +
+          '<button class="btn btn-small" data-action="dismiss-suggestion" data-id="' + esc(c.channelId) + '" aria-label="Not interested">✕</button>' +
+        '</div>' +
+      '</div>' +
+      (c.description ? '<p class="explore-desc">' + esc(c.description) + '</p>' : '') +
+      samplesHtml(c.samples, c.samples === null && session.busy) +
+    '</li>';
   }
 
   function searchResultRow(r) {
     var have = r.kind === 'channel' ? !!approvedChannelIds()[r.channelId] : !!findVideo(r.youtubeId);
-    return '<li class="explore-item">' +
+    return '<li class="explore-item explore-channel">' +
+      '<div class="explore-main">' +
       (r.kind === 'channel'
         ? '<span class="avatar">' + (r.thumbnail ? '<img src="' + esc(r.thumbnail) + '" alt="">' : esc((r.title || '?').charAt(0))) + '</span>'
-        : '<span class="source-thumb"><img src="' + esc(r.thumbnail) + '" alt=""></span>') +
+        : '<button class="source-thumb sample-thumb" data-action="preview" data-video="' + esc(r.youtubeId) + '" title="Preview"><img src="' + esc(r.thumbnail) + '" alt=""></button>') +
       '<div class="source-text"><div class="source-title">' + esc(r.title) + '</div>' +
-        '<div class="muted small">' + (r.kind === 'channel' ? 'Channel' : esc(r.channelName)) + '</div></div>' +
+        '<div class="muted small">' + (r.kind === 'channel' ? esc(channelMeta(r) || 'Channel') : esc(r.channelName)) + '</div></div>' +
       '<div class="source-actions">' +
+        (r.kind === 'channel' && !r.samples ? '<button class="btn btn-small" data-action="show-samples" data-id="' + esc(r.channelId) + '"' + (session.busy ? ' disabled' : '') + '>Show videos</button>' : '') +
         (have ? '<span class="badge">In library</span>'
           : '<button class="btn btn-small btn-primary" data-action="' + (r.kind === 'channel' ? 'add-channel-id' : 'add-video-id') + '" data-id="' + esc(r.kind === 'channel' ? r.channelId : r.youtubeId) + '"' + (session.busy ? ' disabled' : '') + '>Add</button>') +
-      '</div></li>';
+      '</div></div>' +
+      (r.description ? '<p class="explore-desc">' + esc(r.description) + '</p>' : '') +
+      (r.kind === 'channel' ? samplesHtml(r.samples, r.loadingSamples) : '') +
+    '</li>';
+  }
+
+  /* Details + sample videos for a channel search result (2 units). */
+  function showSamples(channelId) {
+    var r = ((session.search && session.search.results) || []).filter(function (x) { return x.channelId === channelId; })[0];
+    if (!r || session.busy) return;
+    r.loadingSamples = true; render();
+    YTH.fetchChannelsInfo(state.settings.apiKey, [channelId]).then(function (infos) {
+      var info = infos[0];
+      if (info) { r.description = (info.description || '').slice(0, 300); r.subscribers = info.subscribers; r.videoCount = info.videoCount; r.uploadsPlaylistId = info.uploadsPlaylistId; }
+      return info ? fetchSamples(info.uploadsPlaylistId) : [];
+    }).then(function (list) {
+      r.samples = list; r.loadingSamples = false; render();
+    }).catch(function () { r.samples = []; r.loadingSamples = false; render(); });
   }
 
   function explorePanel() {
@@ -1368,8 +1456,16 @@
         persist(); render();
         break;
       case 'add-channel-id': if (!session.busy) addChannel({ channelId: el.dataset.id }); break;
+      case 'show-samples': showSamples(el.dataset.id); break;
+      case 'preview': session.preview = el.dataset.video; render(); break;
+      case 'close-preview':
+        // The backdrop closes only when clicked directly; clicks inside the box don't.
+        if (el.classList.contains('preview-overlay') && e.target !== el) break;
+        session.preview = null; render();
+        break;
       case 'add-video-id': {
         if (session.busy) break;
+        session.preview = null;
         var hit = ((session.search && session.search.results) || []).filter(function (r) { return r.youtubeId === el.dataset.id; })[0];
         addVideo(el.dataset.id, hit);
         break;

@@ -208,14 +208,18 @@
     for (var i = 0; i < ids.length; i += 50) {
       (function (chunk) {
         chain = chain.then(function () {
-          return apiGet(apiKey, 'channels', { part: 'snippet,contentDetails', id: chunk.join(','), maxResults: 50 }).then(function (data) {
+          return apiGet(apiKey, 'channels', { part: 'snippet,contentDetails,statistics', id: chunk.join(','), maxResults: 50 }).then(function (data) {
             (data.items || []).forEach(function (item) {
               var thumbs = item.snippet.thumbnails || {};
+              var stats = item.statistics || {};
               out.push({
                 channelId: item.id,
                 title: item.snippet.title,
+                description: item.snippet.description || '',
                 thumbnail: (thumbs.medium || thumbs.default || {}).url || '',
-                uploadsPlaylistId: item.contentDetails.relatedPlaylists.uploads
+                uploadsPlaylistId: item.contentDetails.relatedPlaylists.uploads,
+                subscribers: stats.hiddenSubscriberCount ? null : (parseInt(stats.subscriberCount, 10) || 0),
+                videoCount: parseInt(stats.videoCount, 10) || 0
               });
             });
           });

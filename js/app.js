@@ -148,6 +148,7 @@
     var locked = isLocked();
     if (!locked && route().name === 'watch' && player && player.getCurrentTime) {
       try { session.lastPos = { youtubeId: session.currentVideoId, seconds: player.getCurrentTime() || 0 }; } catch (e) { /* ignore */ }
+      updateSeekRow();
     }
     if (locked !== session.wasLocked) {
       session.wasLocked = locked;
@@ -187,11 +188,13 @@
     back: 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z',
     search: 'M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z',
     timer: 'M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A8.962 8.962 0 0 0 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9a8.994 8.994 0 0 0 7.03-14.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z',
-    replay: 'M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z'
+    replay: 'M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z',
+    back10: 'M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8zm-1.1 11h-.85v-3.26l-1.01.31v-.69l1.77-.63h.09V16zm4.28-1.76c0 .32-.03.6-.1.82s-.17.42-.29.57-.28.26-.45.33-.37.1-.59.1-.41-.03-.59-.1-.33-.18-.46-.33-.23-.34-.3-.57-.11-.5-.11-.82v-.74c0-.32.03-.6.1-.82s.17-.42.29-.57.28-.26.45-.33.37-.1.59-.1.41.03.59.1.33.18.46.33.23.34.3.57.11.5.11.82v.74zm-.85-.86c0-.19-.01-.35-.04-.48s-.07-.23-.12-.31-.11-.14-.19-.17-.16-.05-.25-.05-.18.02-.25.05-.14.09-.19.17-.09.18-.12.31-.04.29-.04.48v.97c0 .19.01.35.04.48s.07.24.12.32.11.14.19.17.16.05.25.05.18-.02.25-.05.14-.09.19-.17.09-.19.11-.32.04-.29.04-.48v-.97z',
+    close: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'
   };
 
-  function icon(name) {
-    return '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="' + ICONS[name] + '"/></svg>';
+  function icon(name, mirror) {
+    return '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="' + ICONS[name] + '"' + (mirror ? ' transform="scale(-1,1) translate(-24,0)"' : '') + '/></svg>';
   }
 
   function logoHtml() {
@@ -220,18 +223,30 @@
   function kidHeader(active) {
     var name = state.settings.childName || 'My Videos';
     return '' +
-      '<header class="topbar">' +
+      '<header class="topbar' + (session.searchOpen || session.filter ? ' search-open' : '') + '">' +
         '<a class="brand" href="#/videos">' + logoHtml() + '<span class="brand-name">' + esc(name) + '</span></a>' +
+        (state.videos.length && !isLocked() ? searchForm() : '') +
         (isLocked() ? '<span class="tabs"></span>' :
           '<nav class="tabs" aria-label="Sections">' +
             '<a href="#/videos" class="' + (active === 'videos' ? 'active' : '') + '">' + icon('home') + '<span>Home</span></a>' +
             '<a href="#/channels" class="' + (active === 'channels' ? 'active' : '') + '">' + icon('channels') + '<span>Channels</span></a>' +
           '</nav>') +
         '<div class="topbar-right">' +
+          (state.videos.length && !isLocked() ? '<button class="icon-btn search-toggle" data-action="toggle-search" aria-label="Search my videos">' + icon('search') + '</button>' : '') +
           (isLocked() ? '' : timerChip()) +
           '<a class="parent-link" href="#/parent" aria-label="Parent mode">' + icon('lock') + '<span class="parent-link-text">Parent</span></a>' +
         '</div>' +
       '</header>';
+  }
+
+  /* Search within the approved library only; looks like YouTube's search bar. */
+  function searchForm() {
+    return '<form class="search-form" data-form="kid-search" role="search">' +
+      '<label class="filter-box">' + icon('search') +
+        '<input class="filter" type="search" placeholder="Search my videos" value="' + esc(session.filter) + '" data-role="filter" aria-label="Search my videos" autocomplete="off" enterkeyhint="search">' +
+        (session.filter ? '<button type="button" class="icon-btn search-clear" data-action="clear-search" aria-label="Clear search">' + icon('close') + '</button>' : '') +
+      '</label>' +
+    '</form>';
   }
 
   function videoCard(v) {
@@ -304,11 +319,7 @@
         html += '<div class="section-head">' + avatarHtml(filterChannel) + '<h1 class="section-title">' + esc(filterChannel) + '</h1>' +
           '<span class="muted small">' + videos.length + (videos.length === 1 ? ' video' : ' videos') + '</span></div>';
       }
-      if (videos.length > 4) {
-        html += '<div class="filter-row"><label class="filter-box">' + icon('search') +
-          '<input class="filter" type="search" placeholder="Find in my videos" value="' + esc(session.filter) + '" data-role="filter" aria-label="Find in my videos" autocomplete="off">' +
-        '</label></div>';
-      }
+      if (q) html += '<h1 class="page-title">Results for “' + esc(session.filter.trim()) + '”</h1>';
       if (!shown.length) {
         html += '<p class="muted center">No videos match “' + esc(session.filter) + '”.</p>';
       } else {
@@ -320,9 +331,13 @@
 
   function viewChannels() {
     var groups = channelGroups();
+    var q = session.filter.trim().toLowerCase();
+    if (q) groups = groups.filter(function (g) { return g.name.toLowerCase().indexOf(q) !== -1; });
     var html = kidHeader('channels') + '<main class="page">';
     if (!state.videos.length) {
       html += emptyLibrary();
+    } else if (!groups.length) {
+      html += '<h1 class="page-title">Channels</h1><p class="muted center">No channels match “' + esc(session.filter) + '”.</p>';
     } else {
       html += '<h1 class="page-title">Channels</h1><div class="channel-list">' + groups.map(function (g) {
         return '<a class="channel-card" href="#/channel/' + encodeURIComponent(g.name) + '">' +
@@ -367,6 +382,41 @@
     var fresh = list.filter(function (o) { return !watched[o.youtubeId]; });
     var seen = list.filter(function (o) { return watched[o.youtubeId]; });
     return fresh.concat(seen).slice(0, 30);
+  }
+
+  /* Our own scrub bar and 10-second buttons, driven through the player API,
+     so rewinding works even where the embed's own thin progress bar is
+     awkward to drag on a touch screen. */
+  function seekRow() {
+    return '<div class="seek-row" data-role="seek-row" hidden>' +
+      '<button class="icon-btn" data-action="seek" data-by="-10" aria-label="Back 10 seconds">' + icon('back10') + '</button>' +
+      '<input type="range" class="seek" min="0" max="100" step="1" value="0" data-role="seek" aria-label="Position">' +
+      '<span class="seek-time" data-role="seek-time">0:00 / 0:00</span>' +
+      '<button class="icon-btn" data-action="seek" data-by="10" aria-label="Forward 10 seconds">' + icon('back10', true) + '</button>' +
+    '</div>';
+  }
+
+  function updateSeekRow() {
+    var row = root.querySelector('[data-role="seek-row"]');
+    if (!row || !player || !player.getDuration) return;
+    var duration = 0, current = 0;
+    try { duration = player.getDuration() || 0; current = player.getCurrentTime() || 0; } catch (e) { return; }
+    if (!duration) return;
+    row.hidden = false;
+    var slider = row.querySelector('[data-role="seek"]');
+    slider.max = Math.floor(duration);
+    if (!session.seeking) slider.value = Math.floor(current);
+    var label = row.querySelector('[data-role="seek-time"]');
+    label.textContent = formatLeft((session.seeking ? slider.value : current) * 1000) + ' / ' + formatLeft(duration * 1000);
+  }
+
+  function seekBy(seconds) {
+    if (!player || !player.seekTo) return;
+    var duration = 0, current = 0;
+    try { duration = player.getDuration() || 0; current = player.getCurrentTime() || 0; } catch (e) { return; }
+    var target = Math.max(0, Math.min(duration || Infinity, current + seconds));
+    player.seekTo(target, true);
+    updateSeekRow();
   }
 
   function watchInfo(v) {
@@ -418,6 +468,7 @@
         '<div class="watch-layout">' +
           '<div class="watch-main">' +
             '<div class="player"><div id="yt-player"></div></div>' +
+            seekRow() +
             '<div class="watch-info">' + watchInfo(v) + '</div>' +
           '</div>' +
           '<section class="more">' + upNextSection() + '</section>' +
@@ -512,6 +563,7 @@
     var info = root.querySelector('.watch-info'); if (info) info.innerHTML = watchInfo(v);
     var bar = root.querySelector('.watch-title-sm'); if (bar) bar.textContent = v.title;
     var more = root.querySelector('.more'); if (more) more.innerHTML = upNextSection();
+    var row = root.querySelector('[data-role="seek-row"]'); if (row) { row.hidden = true; row.querySelector('[data-role="seek"]').value = 0; }
   }
 
   /* Switch the running player to another approved video without rebuilding
@@ -1427,6 +1479,15 @@
     switch (action) {
       case 'back': go(session.lastList || '#/videos'); break;
       case 'replay': render(); break;
+      case 'seek': seekBy(parseInt(el.dataset.by, 10) || 0); break;
+      case 'toggle-search': {
+        session.searchOpen = !session.searchOpen;
+        if (!session.searchOpen) session.filter = '';
+        render();
+        var box = root.querySelector('[data-role="filter"]'); if (box && session.searchOpen) box.focus();
+        break;
+      }
+      case 'clear-search': session.filter = ''; session.searchOpen = false; render(); break;
       case 'rec-filter': {
         session.recFilter = el.dataset.value === 'channel' ? 'channel' : 'all';
         var more = root.querySelector('.more'); if (more) more.innerHTML = upNextSection();
@@ -1557,6 +1618,12 @@
       case 'search':
         runSearch(form.q.value, form.type.value);
         break;
+      case 'kid-search': {
+        var name = route().name;
+        if (['videos', 'channel', 'channels'].indexOf(name) === -1) go('#/videos');
+        var box = root.querySelector('[data-role="filter"]'); if (box) box.blur();
+        break;
+      }
       case 'settings':
         state.settings.childName = form.childName.value.trim() || 'My Videos';
         state.settings.apiKey = form.apiKey.value.trim();
@@ -1570,6 +1637,7 @@
   });
 
   root.addEventListener('input', function (e) {
+    if (e.target.dataset.role === 'seek') { session.seeking = true; updateSeekRow(); return; }
     if (e.target.dataset.role === 'filter') {
       session.filter = e.target.value;
       render();
@@ -1581,6 +1649,12 @@
   }, true);
 
   root.addEventListener('change', function (e) {
+    if (e.target.dataset.role === 'seek') {
+      session.seeking = false;
+      if (player && player.seekTo) { try { player.seekTo(parseInt(e.target.value, 10) || 0, true); } catch (err) { /* ignore */ } }
+      updateSeekRow();
+      return;
+    }
     if (e.target.dataset.role === 'share-api-key') { session.shareApiKey = e.target.checked; session.shareLink = ''; render(); }
     if (e.target.dataset.role === 'import' && e.target.files[0]) importFile(e.target.files[0]);
   });
@@ -1590,7 +1664,7 @@
     var name = route().name;
     if (name === 'videos' || name === 'channels' || name === 'channel') session.lastList = location.hash;
     if (name !== 'parent' && name !== 'import' && name !== 'sample') session.status = null;
-    if (route().name !== 'videos' && route().name !== 'channel') session.filter = '';
+    if (['videos', 'channel', 'channels'].indexOf(name) === -1) { session.filter = ''; session.searchOpen = false; }
     render();
     window.scrollTo(0, 0);
   });

@@ -19,7 +19,7 @@ No search box, no Shorts, no comments, no trending feed.
 
 | Mode | What you see |
 | --- | --- |
-| **Kid mode** (default) | A YouTube-style home page: a chip row to filter by channel, a grid of approved videos with thumbnail, title and channel avatar, and *Home* / *Channels* tabs. Tapping a card plays the video in an embedded player with an "Up next" list. Once there are more than a few videos, a "Find in my videos" box filters the approved library only. |
+| **Kid mode** (default) | A YouTube-style home page: a chip row to filter by channel, a grid of approved videos with thumbnail, title and channel avatar, and *Home* / *Channels* tabs. Tapping a card plays the video in an embedded player with YouTube-style recommendations. A search bar in the top bar (a magnifier on phones) searches the approved library only, videos and channels. |
 | **Parent mode** (🔒 Parent, PIN-protected) | Paste a YouTube link to add a video or channel, see and remove approved content, hide individual videos from a channel, change the library name/PIN, export/import a JSON backup. |
 
 The PIN only prevents accidental taps; it is not real security. A reload
@@ -56,6 +56,9 @@ Videos play in the official YouTube embed through the IFrame Player API:
   minute (for example one picked from the suggestions YouTube shows while
   paused), playback is stopped and the child is sent back to the library. The
   delay is there because pre-roll ads report their own ids.
+* Under the player there is a scrub bar with the current time and 10-second
+  back/forward buttons, driven through the player API, because the embed's
+  own thin progress bar is awkward to drag on a touch screen.
 * If the player API cannot load, a plain embed is used instead.
 * The player iframe is sandboxed so it cannot open new tabs or navigate the
   page. The title, logo and "Watch on YouTube" links are still there, they just

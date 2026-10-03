@@ -21,8 +21,49 @@
     });
   }
 
+  /* ---------- index ----------
+     Lookups used to scan the whole library once per card, which is
+     quadratic with a few thousand videos. Everything derived from the
+     library lives in one cache, rebuilt only after the data changes
+     (persist() and the few places that replace `state` call touch()). */
+  var dataVersion = 0;
+  var cache = { version: -1 };
+
+  function touch() { dataVersion++; }
+
+  function db() {
+    if (cache.version === dataVersion) return cache;
+    var c = { version: dataVersion, byId: {}, bySource: {}, sourceVideos: {}, chanThumb: {}, text: {}, visible: [], groups: null };
+    state.sources.forEach(function (src) {
+      c.bySource[src.id] = src;
+      if (src.type === 'channel' && src.thumbnail && !c.chanThumb[src.title]) c.chanThumb[src.title] = src.thumbnail;
+    });
+    state.videos.forEach(function (v) {
+      c.byId[v.youtubeId] = v;
+      (c.sourceVideos[v.sourceId] = c.sourceVideos[v.sourceId] || []).push(v);
+      if (!v.hidden && !v.unavailable) c.visible.push(v);
+    });
+    c.visible.forEach(function (v) { v._k = v.publishedAt || v.addedAt || ''; });
+    c.visible.sort(function (a, b) { return a._k < b._k ? 1 : a._k > b._k ? -1 : 0; });
+    cache = c;
+    return c;
+  }
+
+  /* Lower-cased title + channel for search, built on first use. */
+  function searchText(v) {
+    var t = db().text;
+    return t[v.youtubeId] || (t[v.youtubeId] = (v.title + ' ' + v.channelName).toLowerCase());
+  }
+
   function persist() {
+    touch();
     if (!STORE.save(state)) setStatus('error', 'Could not save. Is browser storage full or blocked?');
+  }
+
+  /* "Last watched" times only: a tiny separate entry, so starting a video
+     never rewrites the whole library. */
+  function persistWatched() {
+    STORE.saveWatched(state.channelWatched);
   }
 
   /* `where` names the parent-mode panel the message belongs under ('add' by default). */
@@ -41,32 +82,43 @@
     return v.publishedAt || v.addedAt || '';
   }
 
-  function visibleVideos() {
-    return state.videos.filter(function (v) { return !v.hidden && !v.unavailable; })
-      .sort(function (a, b) { return sortKey(b).localeCompare(sortKey(a)); });
+  function byNewest(a, b) {
+    var ka = sortKey(a), kb = sortKey(b);
+    return ka < kb ? 1 : ka > kb ? -1 : 0;
   }
 
+  /* Shown videos, newest first. Cached: callers must not mutate it. */
+  function visibleVideos() {
+    return db().visible;
+  }
+
+  /* Index lookup, falling back to a scan for videos added since the last
+     rebuild (e.g. mid-sync, before persist). */
   function findVideo(id) {
+    var v = db().byId[id];
+    if (v) return v;
     for (var i = 0; i < state.videos.length; i++) if (state.videos[i].youtubeId === id) return state.videos[i];
     return null;
   }
 
   function findSource(id) {
+    var src = db().bySource[id];
+    if (src) return src;
     for (var i = 0; i < state.sources.length; i++) if (state.sources[i].id === id) return state.sources[i];
     return null;
   }
 
   function channelGroups() {
+    var c = db();
+    if (c.groups) return c.groups;
     var map = {};
-    visibleVideos().forEach(function (v) {
+    c.visible.forEach(function (v) {
       var name = v.channelName || 'Other videos';
-      if (!map[name]) map[name] = { name: name, videos: [], thumbnail: '' };
+      if (!map[name]) map[name] = { name: name, videos: [], thumbnail: c.chanThumb[name] || '' };
       map[name].videos.push(v);
     });
-    state.sources.forEach(function (s) {
-      if (s.type === 'channel' && map[s.title] && s.thumbnail) map[s.title].thumbnail = s.thumbnail;
-    });
-    return Object.keys(map).sort(function (a, b) { return a.localeCompare(b); }).map(function (k) { return map[k]; });
+    c.groups = Object.keys(map).sort(function (a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; }).map(function (k) { return map[k]; });
+    return c.groups;
   }
 
   function formatDate(iso) {
@@ -202,18 +254,14 @@
   }
 
   function channelThumb(name) {
-    for (var i = 0; i < state.sources.length; i++) {
-      var s = state.sources[i];
-      if (s.type === 'channel' && s.title === name && s.thumbnail) return s.thumbnail;
-    }
-    return '';
+    return db().chanThumb[name] || '';
   }
 
   /* YouTube-style round avatar: the channel picture when known, else a
      coloured circle with the channel's initial. */
   function avatarHtml(name) {
     var src = channelThumb(name);
-    if (src) return '<span class="avatar"><img src="' + esc(src) + '" alt="" loading="lazy"></span>';
+    if (src) return '<span class="avatar"><img src="' + esc(src) + '" alt="" loading="lazy" decoding="async"></span>';
     var h = 0;
     for (var i = 0; i < (name || '').length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
     var initial = (name || '').trim().charAt(0).toUpperCase() || '▶';
@@ -244,7 +292,7 @@
     return '<form class="search-form" data-form="kid-search" role="search">' +
       '<label class="filter-box">' + icon('search') +
         '<input class="filter" type="search" placeholder="Search my videos" value="' + esc(session.filter) + '" data-role="filter" aria-label="Search my videos" autocomplete="off" enterkeyhint="search">' +
-        (session.filter ? '<button type="button" class="icon-btn search-clear" data-action="clear-search" aria-label="Clear search">' + icon('close') + '</button>' : '') +
+        '<button type="button" class="icon-btn search-clear" data-action="clear-search" aria-label="Clear search">' + icon('close') + '</button>' +
       '</label>' +
     '</form>';
   }
@@ -252,7 +300,7 @@
   function videoCard(v) {
     return '' +
       '<a class="card" href="#/watch/' + esc(v.youtubeId) + '">' +
-        '<div class="thumb"><img src="' + esc(v.thumbnail || YTH.thumbnailUrl(v.youtubeId)) + '" alt="" loading="lazy"></div>' +
+        '<div class="thumb"><img src="' + esc(YTH.thumbnailUrl(v.youtubeId, 'mqdefault')) + '" alt="" loading="lazy" decoding="async"></div>' +
         '<div class="card-body">' +
           avatarHtml(v.channelName) +
           '<div class="card-text">' +
@@ -261,6 +309,45 @@
           '</div>' +
         '</div>' +
       '</a>';
+  }
+
+  /* Only the first screenful of cards is rendered; more are appended as
+     the child scrolls (or taps Show more). Rendering every card at once
+     was the main cause of slowness with a few thousand videos. */
+  var GRID_PAGE = 24;
+  var gridObserver = null;
+
+  function gridHtml(list) {
+    session.grid = { list: list, shown: Math.min(GRID_PAGE, list.length) };
+    return '<div class="grid" data-role="grid">' + list.slice(0, session.grid.shown).map(videoCard).join('') + '</div>' +
+      (session.grid.shown < list.length ? '<div class="more-row"><button class="btn" data-action="grid-more" data-role="grid-more">Show more</button></div>' : '');
+  }
+
+  function gridMore() {
+    var g = session.grid;
+    var grid = root.querySelector('[data-role="grid"]');
+    var btn = root.querySelector('[data-role="grid-more"]');
+    if (!g || !grid) return;
+    var next = g.list.slice(g.shown, g.shown + GRID_PAGE);
+    g.shown += next.length;
+    grid.insertAdjacentHTML('beforeend', next.map(videoCard).join(''));
+    if (btn && g.shown >= g.list.length) {
+      if (gridObserver) gridObserver.disconnect();
+      btn.parentNode.remove();
+    } else if (btn && gridObserver) {
+      // Re-observe so a still-visible button keeps loading on tall screens.
+      gridObserver.unobserve(btn); gridObserver.observe(btn);
+    }
+  }
+
+  function observeGrid() {
+    if (gridObserver) { gridObserver.disconnect(); gridObserver = null; }
+    var btn = root.querySelector('[data-role="grid-more"]');
+    if (!btn || !('IntersectionObserver' in window)) return;
+    gridObserver = new IntersectionObserver(function (entries) {
+      if (entries[0] && entries[0].isIntersecting) gridMore();
+    }, { rootMargin: '600px 0px' });
+    gridObserver.observe(btn);
   }
 
   /* YouTube-style chip row: All + one chip per channel. */
@@ -288,8 +375,7 @@
      per-session shuffle that pushes channels watched in the last two days
      down, so the same set doesn't look static. */
   function homeOrder(videos) {
-    var ids = videos.map(function (v) { return v.youtubeId; }).join(',');
-    if (session.homeOrder && session.homeOrder.key === ids) return session.homeOrder.list.map(findVideo).filter(Boolean);
+    if (session.homeOrder && session.homeOrder.key === dataVersion) return session.homeOrder.list;
     var recent = Date.now() - 2 * 86400000;
     var watched = state.channelWatched || {};
     var newest = videos.slice(0, Math.min(6, Math.floor(videos.length / 4)));
@@ -297,7 +383,7 @@
     var fresh = shuffled(rest.filter(function (v) { return !(watched[v.channelName] > recent); }));
     var stale = shuffled(rest.filter(function (v) { return watched[v.channelName] > recent; }));
     var list = newest.concat(fresh, stale);
-    session.homeOrder = { key: ids, list: list.map(function (v) { return v.youtubeId; }) };
+    session.homeOrder = { key: dataVersion, list: list };
     return list;
   }
 
@@ -306,9 +392,7 @@
     if (filterChannel) videos = videos.filter(function (v) { return (v.channelName || 'Other videos') === filterChannel; });
     else videos = homeOrder(videos);
     var q = session.filter.trim().toLowerCase();
-    var shown = q ? videos.filter(function (v) {
-      return (v.title + ' ' + v.channelName).toLowerCase().indexOf(q) !== -1;
-    }) : videos;
+    var shown = q ? videos.filter(function (v) { return searchText(v).indexOf(q) !== -1; }) : videos;
 
     var html = kidHeader('videos');
     if (!state.videos.length) {
@@ -323,7 +407,7 @@
       if (!shown.length) {
         html += '<p class="muted center">No videos match “' + esc(session.filter) + '”.</p>';
       } else {
-        html += '<div class="grid">' + shown.map(videoCard).join('') + '</div>';
+        html += gridHtml(shown);
       }
     }
     return html + '</main>';
@@ -597,7 +681,7 @@
       var v = findVideo(id);
       if (v && !v.hidden) {
         clearTimeout(session.unknownTimer); session.unknownTimer = null;
-        if (v.channelName) { state.channelWatched = state.channelWatched || {}; state.channelWatched[v.channelName] = Date.now(); persist(); }
+        if (v.channelName) { state.channelWatched = state.channelWatched || {}; state.channelWatched[v.channelName] = Date.now(); persistWatched(); }
         if (id !== session.currentVideoId) showNowPlaying(v); // e.g. picked from the overlay
         return;
       }
@@ -806,7 +890,7 @@
   }
 
   function sourceRow(s) {
-    var vids = state.videos.filter(function (v) { return v.sourceId === s.id; });
+    var vids = db().sourceVideos[s.id] || [];
     var hiddenCount = vids.filter(function (v) { return v.hidden; }).length;
     var unplayableCount = vids.filter(function (v) { return v.unavailable; }).length;
     var thumb = s.thumbnail || (s.type === 'video' ? YTH.thumbnailUrl(s.youtubeId) : '');
@@ -826,15 +910,17 @@
         '</div>' +
       '</div>';
     if (s.type === 'channel' && vids.length) {
-      html += '<details class="source-videos" data-details="' + esc(s.id) + '"' + (session.open[s.id] ? ' open' : '') + '><summary>Show videos (tap a video to hide or show it)</summary><ul>' +
-        vids.sort(function (a, b) { return sortKey(b).localeCompare(sortKey(a)); }).map(function (v) {
+      // The list is only built while it is open; a closed <details> with
+      // thousands of rows was what made parent mode take so long to open.
+      html += '<details class="source-videos" data-details="' + esc(s.id) + '"' + (session.open[s.id] ? ' open' : '') + '><summary>Show ' + vids.length + ' videos (tap a video to hide or show it)</summary>' +
+        (!session.open[s.id] ? '' : '<ul>' + vids.slice().sort(byNewest).map(function (v) {
           return '<li class="' + (v.hidden || v.unavailable ? 'is-hidden' : '') + '">' +
             '<button class="video-toggle" data-action="toggle-hidden" data-video="' + esc(v.youtubeId) + '" aria-pressed="' + (v.hidden ? 'true' : 'false') + '"' + (v.unavailable ? ' disabled' : '') + '>' +
               '<img src="' + esc(YTH.thumbnailUrl(v.youtubeId, 'default')) + '" alt="">' +
               '<span class="video-toggle-title">' + esc(v.title) + '</span>' +
               '<span class="badge' + (v.unavailable ? ' badge-warn' : '') + '">' + (v.unavailable ? 'Can’t play' : v.hidden ? 'Hidden' : 'Shown') + '</span>' +
             '</button></li>';
-        }).join('') + '</ul></details>';
+        }).join('') + '</ul>') + '</details>';
     }
     return html + '</li>';
   }
@@ -952,12 +1038,9 @@
 
   /* ---------------- render ---------------- */
 
-  function render() {
-    var r = route();
+  function viewFor(r) {
     var html;
     var mode = 'kid';
-    destroyPlayer();
-    session.wasLocked = isLocked();
     switch (r.name) {
       case 'parent': html = viewParent(); mode = 'parent'; break;
       case 'unlock': html = viewUnlock(); mode = 'parent'; break;
@@ -968,6 +1051,15 @@
       case 'channel': html = isLocked() ? viewLocked() : viewVideos(r.arg); break;
       default: html = isLocked() ? viewLocked() : viewVideos(null);
     }
+    return { html: html, mode: mode };
+  }
+
+  function render() {
+    var r = route();
+    destroyPlayer();
+    session.wasLocked = isLocked();
+    var view = viewFor(r);
+    var html = view.html, mode = view.mode;
     document.body.dataset.mode = mode;
     var active = document.activeElement;
     var keepFocus = active && active.dataset && active.dataset.role === 'filter';
@@ -983,6 +1075,20 @@
       var current = findVideo(r.arg);
       if (current && !current.hidden) mountPlayer(current);
     }
+    observeGrid();
+  }
+
+  /* While typing a search, swap only <main> so the header (and the input
+     being typed into) is left alone. */
+  function refreshResults() {
+    var tpl = document.createElement('template');
+    tpl.innerHTML = viewFor(route()).html;
+    var fresh = tpl.content.querySelector('main');
+    var cur = root.querySelector('main');
+    if (!fresh || !cur) { render(); return; }
+    cur.replaceWith(fresh);
+    window.scrollTo(0, 0);
+    observeGrid();
   }
 
   /* ---------------- actions ---------------- */
@@ -1479,6 +1585,7 @@
     switch (action) {
       case 'back': go(session.lastList || '#/videos'); break;
       case 'replay': render(); break;
+      case 'grid-more': gridMore(); break;
       case 'seek': seekBy(parseInt(el.dataset.by, 10) || 0); break;
       case 'toggle-search': {
         session.searchOpen = !session.searchOpen;
@@ -1537,7 +1644,7 @@
         break;
       case 'toggle-hidden': {
         var v = findVideo(el.dataset.video);
-        if (v) { v.hidden = !v.hidden; persist(); render(); }
+        if (v) { v.hidden = !v.hidden; persist(); var sy = window.scrollY; render(); window.scrollTo(0, sy); }
         break;
       }
       case 'use-sample': {
@@ -1556,6 +1663,7 @@
         if (confirm('Delete everything, including the PIN? This cannot be undone.')) {
           STORE.clear();
           state = STORE.load();
+          touch();
           session.unlocked = false; session.status = null;
           go('#/videos'); render();
         }
@@ -1640,12 +1748,20 @@
     if (e.target.dataset.role === 'seek') { session.seeking = true; updateSeekRow(); return; }
     if (e.target.dataset.role === 'filter') {
       session.filter = e.target.value;
-      render();
+      clearTimeout(session.filterTimer);
+      session.filterTimer = setTimeout(refreshResults, 160);
     }
   });
 
   root.addEventListener('toggle', function (e) {
-    if (e.target.dataset && e.target.dataset.details) session.open[e.target.dataset.details] = e.target.open;
+    var d = e.target.dataset && e.target.dataset.details;
+    if (!d) return;
+    var wasOpen = !!session.open[d];
+    session.open[d] = e.target.open;
+    // Opening a channel's list for the first time builds it.
+    if (e.target.open && !wasOpen && e.target.classList.contains('source-videos') && !e.target.querySelector('ul')) {
+      var y = window.scrollY; render(); window.scrollTo(0, y);
+    }
   }, true);
 
   root.addEventListener('change', function (e) {

@@ -156,6 +156,7 @@ h2 { font-size: 1rem; }
 .filter { flex: 1; min-width: 0; border: 0; background: none; font: inherit; font-size: 1rem; color: var(--text); outline: none; padding: 0; min-height: 0; }
 .filter::-webkit-search-cancel-button { display: none; }
 .search-clear { min-width: 32px; height: 32px; padding: 0; }
+.filter:placeholder-shown + .search-clear { display: none; }
 .search-toggle { display: none; }
 @media (max-width: 640px) {
   .search-toggle { display: inline-flex; }
@@ -359,3 +360,8 @@ select { width: auto; }
 .preview-head { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; }
 .preview-title { flex: 1; min-width: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .preview-actions { padding: 12px 16px; }
+
+/* ---------- paged grid ---------- */
+.more-row { display: flex; justify-content: center; padding: 24px 0 8px; }
+/* Let the browser skip layout/paint for cards far off screen. */
+.grid .card { content-visibility: auto; contain-intrinsic-size: auto 280px; }

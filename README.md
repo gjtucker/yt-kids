@@ -230,6 +230,16 @@ in the Approved library panel does the same on demand.
 Clear this site's data in the browser (or use another browser). This also
 removes the library, so export a backup first if you can still get in.
 
+## Performance on slow devices
+
+The app is built to stay quick with thousands of videos on a weak tablet:
+the home page and search results render one screenful of cards and load
+more as you scroll, typing in search only refreshes the results, lookups go
+through an in-memory index, and parent mode builds a channel's video list
+only when you open it. Saved data leaves out anything that can be rebuilt
+(such as thumbnail URLs), and "last watched" times are stored separately so
+starting a video never rewrites the whole library.
+
 ## Project layout
 
 ```

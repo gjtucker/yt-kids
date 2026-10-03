@@ -3,6 +3,9 @@
   'use strict';
 
   var KEY = 'kidtube.v1';
+  // "Last watched" times per channel change on every video start, so they
+  // live in their own small entry instead of rewriting the whole library.
+  var WATCHED_KEY = 'kidtube.watched';
 
   function defaults() {
     return {
@@ -32,12 +35,35 @@
     } catch (e) {
       console.warn('Could not read saved data', e);
     }
+    try {
+      var w = JSON.parse(localStorage.getItem(WATCHED_KEY) || 'null');
+      if (w && typeof w === 'object') state.channelWatched = Object.assign(state.channelWatched || {}, w);
+    } catch (e) { /* ignore */ }
     return state;
+  }
+
+  function saveWatched(watched) {
+    try { localStorage.setItem(WATCHED_KEY, JSON.stringify(watched || {})); } catch (e) { /* ignore */ }
+  }
+
+  /* Drop per-video fields that can be rebuilt, which keeps a library of
+     thousands of videos small enough to save quickly on a slow device:
+     the thumbnail URL (derived from the id), addedAt when publishedAt is
+     known, false flags, and in-memory helpers starting with "_". */
+  function compact(key, value) {
+    if (key.charAt(0) === '_' || key === 'channelWatched') return undefined;
+    if (this && this.sourceId !== undefined && this.youtubeId !== undefined) {
+      if (key === 'thumbnail') return undefined;
+      if (key === 'addedAt' && this.publishedAt) return undefined;
+      if ((key === 'hidden' || key === 'unavailable') && !value) return undefined;
+    }
+    return value;
   }
 
   function save(state) {
     try {
-      localStorage.setItem(KEY, JSON.stringify(state));
+      localStorage.setItem(KEY, JSON.stringify(state, compact));
+      saveWatched(state.channelWatched);
       return true;
     } catch (e) {
       console.warn('Could not save data', e);
@@ -46,7 +72,7 @@
   }
 
   function clear() {
-    try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
+    try { localStorage.removeItem(KEY); localStorage.removeItem(WATCHED_KEY); } catch (e) { /* ignore */ }
   }
 
   function uid() {
@@ -82,7 +108,7 @@
       settings: { childName: state.settings.childName, apiKey: state.settings.apiKey, blockYouTubeLinks: state.settings.blockYouTubeLinks, useYouTubeSignIn: state.settings.useYouTubeSignIn, watchMinutes: state.settings.watchMinutes },
       sources: state.sources,
       videos: state.videos
-    }, null, 2);
+    }, compact, 2);
   }
 
   /* Merges an exported file into `state`. PIN is never imported. */
@@ -246,6 +272,7 @@
   }
 
   window.STORE = {
+    saveWatched: saveWatched,
     encodeCompact: encodeCompact,
     sharePayload: sharePayload,
     encodeShare: encodeShare,

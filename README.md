@@ -38,6 +38,28 @@ right there (the lock screen shows what will continue).
 The expiry is stored locally, so reloading the page neither resets nor
 extends it. Parent mode also has **Start now** and **Lock now** buttons.
 
+### Activity (how much and when)
+
+Parent mode has an **Activity** panel showing how the kid side of the app is
+used on this device, for the last 7, 14 or 30 days:
+
+* **Totals**: time watched today, the daily average, the total for the
+  period and the busiest hour of the day.
+* **Time of day**: a bar per hour (12 AM to 12 AM) with the minutes watched
+  in that hour, added up over the period, so regular habits stand out
+  (after school, before bed, early mornings).
+* **Day by day**: one row per day, midnight to midnight, in 15-minute
+  blocks. Blue blocks mean a video was playing (darker = more of those 15
+  minutes); grey means kid mode was open but nothing was playing. Each row
+  ends with that day's total.
+* **Most watched channels** for the period.
+
+Only time actually on screen counts: a hidden tab, a locked screen or parent
+mode adds nothing. "Watching" means the player reported it was playing; if
+the player API can't load, time on the watch page counts as watching. The
+log is stored in its own `localStorage` entry, kept for 60 days, never
+included in backups or share links, and can be cleared from the panel.
+
 ### Playback
 
 Videos play in the official YouTube embed through the IFrame Player API:
@@ -247,6 +269,7 @@ index.html            app shell
 css/styles.css        all styling
 js/youtube.js         URL parsing, thumbnails, oEmbed metadata, optional Data API calls
 js/store.js           localStorage persistence, PIN hashing, import/export, share links
+js/activity.js        watch-time log for the parent Activity panel
 js/sample.js          the sample library offered at #/sample
 sample/index.html     redirects /sample/ to #/sample
 js/app.js             routing, kid mode, parent mode
@@ -263,11 +286,13 @@ sources  = [{ id, type: "video" | "channel", youtubeId, title, channelName, adde
               // channels only:
               uploadsPlaylistId, thumbnail, lastSyncedAt }]
 videos   = [{ youtubeId, title, channelName, thumbnail, sourceId, publishedAt, addedAt, hidden }]
+// separate entry "kidtube.activity", seconds per 15-minute slot (0-95) per local day
+activity = { days: { "YYYY-MM-DD": { w: { slot: watching }, o: { slot: open }, ch: { channelName: watching } } } }
 ```
 
 ## Non-goals (for now)
 
 No accounts, cloud sync, OAuth, backend, payments, content moderation, remote
-administration or screen-time limits. A technically determined child can still
+administration or daily screen-time limits. A technically determined child can still
 open youtube.com in another tab; this app is about making the *easy* path a
 safe one.

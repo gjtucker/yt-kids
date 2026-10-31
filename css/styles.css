@@ -365,3 +365,35 @@ select { width: auto; }
 .more-row { display: flex; justify-content: center; padding: 24px 0 8px; }
 /* Let the browser skip layout/paint for cards far off screen. */
 .grid .card { content-visibility: auto; contain-intrinsic-size: auto 280px; }
+
+/* ---------- activity (parent mode) ---------- */
+.chips.act-range { padding: 0; margin: 0; gap: 8px; }
+#activity h3 { margin-top: 20px; }
+#activity h3 + .muted { margin: 4px 0 10px; }
+.act-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 12px; }
+.act-stat { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; }
+.act-num { font-size: 1.2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.act-hours { display: flex; align-items: flex-end; gap: 2px; height: 90px; border-bottom: 1px solid var(--line); }
+.act-hour { flex: 1; height: 100%; display: flex; align-items: flex-end; }
+.act-hour-bar { width: 100%; background: var(--link); border-radius: 3px 3px 0 0; }
+.act-axis { display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--muted); margin-top: 4px; flex: 1; min-width: 0; }
+.act-days { display: flex; flex-direction: column; gap: 4px; }
+.act-day { display: flex; align-items: center; gap: 8px; }
+.act-day-label { width: 92px; flex-shrink: 0; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.act-day-total { width: 72px; flex-shrink: 0; text-align: right; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.act-strip { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(96, 1fr); height: 18px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.act-strip i { display: block; }
+.act-strip i:nth-child(24n+1) { box-shadow: inset 1px 0 0 var(--line); }
+.act-strip i.w { background: var(--link); }
+.act-strip i.o { background: var(--hover); }
+.act-day-axis .act-axis { margin-top: 2px; }
+.act-key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-left: 6px; }
+.act-key-w { background: var(--link); }
+.act-key-o { background: var(--hover); }
+.act-channels { list-style: none; margin: 0; padding: 0; }
+.act-channels li { display: flex; align-items: center; gap: 10px; padding: 4px 0; font-size: 0.85rem; }
+.act-ch-name { width: 40%; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.act-ch-bar { flex: 1; height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.act-ch-bar span { display: block; height: 100%; background: var(--link); }
+.act-ch-time { width: 72px; text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 480px) { .act-day-label { width: 64px; } .act-day-total { width: 52px; } .act-ch-time { width: 52px; } }

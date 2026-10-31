@@ -6,6 +6,7 @@
 
   var YTH = window.YT_HELPERS; // window.YT is reserved for the YouTube IFrame API
   var STORE = window.STORE;
+  var ACTIVITY = window.ACTIVITY;
 
   var SAMPLE_URL = 'https://www.youtube.com/watch?v=jNQXAC9IVRw';
 
@@ -197,6 +198,7 @@
   }
 
   function tick() {
+    trackActivity();
     var locked = isLocked();
     if (!locked && route().name === 'watch' && player && player.getCurrentTime) {
       try { session.lastPos = { youtubeId: session.currentVideoId, seconds: player.getCurrentTime() || 0 }; } catch (e) { /* ignore */ }
@@ -217,6 +219,117 @@
         chips[i].parentNode.classList.toggle('low', left < 60000);
       }
     }
+  }
+
+  /* ---------------- activity log ----------------
+     Counts time the kid side is on screen, and how much of it a video was
+     actually playing, for the Activity panel in parent mode. */
+
+  function trackActivity() {
+    var now = Date.now(), last = session.lastTrack || now;
+    session.lastTrack = now;
+    // Cap the step so a sleeping tablet or a throttled tab adds nothing.
+    var seconds = Math.min((now - last) / 1000, 5);
+    if (!seconds || document.hidden || isLocked()) return;
+    var name = route().name;
+    if (['parent', 'unlock', 'import', 'sample'].indexOf(name) !== -1) return;
+    // Without the player API (plain embed) we can't see play/pause, so the
+    // whole time on the watch page counts as watching.
+    var watching = name === 'watch' && (player ? !!session.playing : !!root.querySelector('.player iframe'));
+    var v = watching && findVideo(session.currentVideoId);
+    ACTIVITY.add(seconds, watching, v ? v.channelName || 'Other videos' : '');
+  }
+
+  /* "1 h 5 min", or "1h 5m" where space is tight. */
+  function formatDuration(seconds, short) {
+    var m = Math.round(seconds / 60);
+    var h = short ? 'h' : ' h', min = short ? 'm' : ' min';
+    if (!m) return (seconds > 0 ? '<1' : '0') + min;
+    if (m < 60) return m + min;
+    return Math.floor(m / 60) + h + (m % 60 ? ' ' + m % 60 + min : '');
+  }
+
+  function hourLabel(h) {
+    h = h % 24;
+    return (h % 12 || 12) + (h < 12 ? ' AM' : ' PM');
+  }
+
+  function dayLabel(date, i) {
+    if (i === 0) return 'Today';
+    if (i === 1) return 'Yesterday';
+    return date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
+  }
+
+  function activityPanel() {
+    var range = session.activityDays || 7;
+    var days = ACTIVITY.recentDays(range);
+    var slotSec = ACTIVITY.SLOT_MIN * 60, perHour = 60 / ACTIVITY.SLOT_MIN;
+    var total = 0, totalOpen = 0, activeDays = 0, hours = [], channels = {};
+    for (var h = 0; h < 24; h++) hours.push(0);
+    days.forEach(function (d) {
+      total += d.watch; totalOpen += d.open;
+      if (d.watch > 0) activeDays++;
+      d.w.forEach(function (sec, s) { hours[Math.floor(s / perHour)] += sec; });
+      Object.keys(d.ch).forEach(function (c) { channels[c] = (channels[c] || 0) + d.ch[c]; });
+    });
+    var peak = hours.indexOf(Math.max.apply(null, hours));
+    var maxHour = Math.max.apply(null, hours) || 1;
+
+    var head = '<div class="panel-head"><h2>Activity</h2>' +
+      '<div class="chips act-range">' + [7, 14, 30].map(function (n) {
+        return '<button class="chip' + (n === range ? ' active' : '') + '" data-action="activity-range" data-days="' + n + '">' + n + ' days</button>';
+      }).join('') + '</div></div>';
+
+    if (!ACTIVITY.hasAny()) {
+      return '<section class="panel" id="activity">' + head +
+        '<p class="muted">Nothing recorded yet. Once your child uses kid mode on this device, you’ll see here how long and at what times they watched.</p></section>';
+    }
+
+    var stats = '<div class="act-stats">' +
+      '<div class="act-stat"><div class="act-num">' + formatDuration(days[0].watch) + '</div><div class="muted small">watched today</div></div>' +
+      '<div class="act-stat"><div class="act-num">' + formatDuration(total / range) + '</div><div class="muted small">daily average</div></div>' +
+      '<div class="act-stat"><div class="act-num">' + formatDuration(total) + '</div><div class="muted small">in ' + range + ' days (' + activeDays + (activeDays === 1 ? ' day' : ' days') + ' with videos)</div></div>' +
+      '<div class="act-stat"><div class="act-num">' + (total ? hourLabel(peak) + '–' + hourLabel(peak + 1) : '—') + '</div><div class="muted small">busiest hour</div></div>' +
+    '</div>';
+
+    var axis = '<div class="act-axis" aria-hidden="true"><span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>12 AM</span></div>';
+
+    var byHour = '<h3>Time of day</h3>' +
+      '<p class="muted small">Minutes watched in each hour, added up over the last ' + range + ' days.</p>' +
+      '<div class="act-hours">' + hours.map(function (sec, i) {
+        var pct = Math.round(sec / maxHour * 100);
+        return '<div class="act-hour" title="' + hourLabel(i) + '–' + hourLabel(i + 1) + ': ' + formatDuration(sec) + '"><div class="act-hour-bar" style="height:' + (sec ? Math.max(pct, 3) : 0) + '%"></div></div>';
+      }).join('') + '</div>' + axis;
+
+    var timeline = '<h3>Day by day</h3>' +
+      '<p class="muted small">Each row is one day from midnight to midnight. <span class="act-key act-key-w"></span> video playing <span class="act-key act-key-o"></span> app open, nothing playing</p>' +
+      '<div class="act-days">' + days.map(function (d, i) {
+        var cells = '';
+        for (var s = 0; s < ACTIVITY.SLOTS; s++) {
+          var w = d.w[s], o = d.o[s];
+          if (!w && !o) { cells += '<i></i>'; continue; }
+          var start = s * ACTIVITY.SLOT_MIN;
+          var when = hourLabel(Math.floor(start / 60)).replace(' ', ':' + ('0' + start % 60).slice(-2) + ' ');
+          cells += w
+            ? '<i class="w" style="opacity:' + (0.35 + 0.65 * Math.min(1, w / slotSec)).toFixed(2) + '" title="' + when + ': ' + formatDuration(w) + ' watching"></i>'
+            : '<i class="o" title="' + when + ': app open"></i>';
+        }
+        return '<div class="act-day"><div class="act-day-label">' + esc(dayLabel(d.date, i)) + '</div>' +
+          '<div class="act-strip">' + cells + '</div>' +
+          '<div class="act-day-total">' + (d.watch ? formatDuration(d.watch, true) : d.open ? '<span class="muted">' + formatDuration(0, true) + '</span>' : '') + '</div></div>';
+      }).join('') + '</div>' +
+      '<div class="act-day act-day-axis"><div class="act-day-label"></div>' + axis + '<div class="act-day-total"></div></div>';
+
+    var top = Object.keys(channels).sort(function (a, b) { return channels[b] - channels[a]; }).slice(0, 8);
+    var maxCh = top.length ? channels[top[0]] : 1;
+    var chans = top.length ? '<h3>Most watched channels</h3><ul class="act-channels">' + top.map(function (c) {
+      return '<li><span class="act-ch-name">' + esc(c) + '</span><span class="act-ch-bar"><span style="width:' + Math.max(2, Math.round(channels[c] / maxCh * 100)) + '%"></span></span><span class="act-ch-time">' + formatDuration(channels[c], true) + '</span></li>';
+    }).join('') + '</ul>' : '';
+
+    return '<section class="panel" id="activity">' + head + stats + byHour + timeline + chans +
+      '<p class="muted small">Kid mode was open ' + formatDuration(totalOpen) + ' in total over these ' + range + ' days. Activity is recorded only on this device and kept for 60 days.</p>' +
+      '<div class="btn-row"><button class="btn btn-small" data-action="clear-activity">Clear activity history</button></div>' +
+    '</section>';
   }
 
   /* ---------------- routing ---------------- */
@@ -589,6 +702,7 @@
 
   function destroyPlayer() {
     clearTimeout(session.unknownTimer); session.unknownTimer = null;
+    session.playing = false;
     if (player) {
       try { player.destroy(); } catch (e) { /* ignore */ }
       player = null;
@@ -674,6 +788,7 @@
   function onPlayerStateChange(e) {
     var states = window.YT.PlayerState;
     if (!player) return;
+    session.playing = e.data === states.PLAYING;
     if (e.data === states.PLAYING) {
       var data = player.getVideoData ? player.getVideoData() : null;
       var id = data && data.video_id;
@@ -950,6 +1065,8 @@
           (state.settings.apiKey ? 'Channel links (youtube.com/@name) add that channel’s latest uploads.' : 'To add whole channels, enter a YouTube API key in Settings below.') +
           ' <a href="#" data-action="use-sample">Try a sample video</a>' + (window.SAMPLE_LIBRARY ? ' or <a href="#/sample">load the sample library</a> (' + window.SAMPLE_LIBRARY.sources.length + ' videos).' : '') + '</p>' +
       '</section>' +
+
+      activityPanel() +
 
       explorePanel() +
 
@@ -1609,6 +1726,14 @@
         break;
       case 'start-watch': startWatchTime(); setStatus('ok', 'Unlocked for ' + state.settings.watchMinutes + ' minutes.', 'watch'); break;
       case 'end-watch': endWatchTime(); setStatus('ok', 'Locked.', 'watch'); break;
+      case 'activity-range': {
+        session.activityDays = parseInt(el.dataset.days, 10) || 7;
+        var y = window.scrollY; render(); window.scrollTo(0, y);
+        break;
+      }
+      case 'clear-activity':
+        if (confirm('Clear all recorded activity on this device?')) { ACTIVITY.clear(); render(); }
+        break;
       case 'lock':
         session.unlocked = false; session.status = null; session.filter = ''; session.shareLink = '';
         go(isLocked() ? '#/videos' : afterUnlockHash());
@@ -1662,6 +1787,7 @@
       case 'reset':
         if (confirm('Delete everything, including the PIN? This cannot be undone.')) {
           STORE.clear();
+          ACTIVITY.clear();
           state = STORE.load();
           touch();
           session.unlocked = false; session.status = null;

@@ -260,17 +260,82 @@
     return date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
   }
 
+  /* Night hours, as whole hours: from nightStart (e.g. 21 = 9 PM) to nightEnd (6 = 6 AM). */
+  function nightHours() {
+    var st = state.settings;
+    return { start: typeof st.nightStart === 'number' ? st.nightStart : 21, end: typeof st.nightEnd === 'number' ? st.nightEnd : 6 };
+  }
+
+  function isNightHour(h) {
+    var n = nightHours();
+    return n.start > n.end ? (h >= n.start || h < n.end) : (h >= n.start && h < n.end);
+  }
+
+  /* True if any minute of the session falls in night hours. */
+  function isNightSession(sess) {
+    for (var t = sess.start.getTime(); t <= sess.end.getTime(); t += 60000) {
+      if (isNightHour(new Date(t).getHours())) return true;
+    }
+    return isNightHour(sess.end.getHours());
+  }
+
+  function clock(date) {
+    return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function topChannels(map, n) {
+    return Object.keys(map).sort(function (a, b) { return map[b] - map[a]; }).slice(0, n);
+  }
+
+  /* One line per session: "2:14 AM – 2:51 AM · 31 min watched · Channel". */
+  function sessionRow(sess, dayName) {
+    var night = isNightSession(sess);
+    var mins = Math.round((sess.end - sess.start) / 60000);
+    var chans = topChannels(sess.ch, 3);
+    return '<li class="act-session' + (night ? ' night' : '') + '">' +
+      (dayName ? '<span class="act-s-day">' + esc(dayName) + '</span>' : '') +
+      '<span class="act-s-time">' + clock(sess.start) + ' – ' + clock(sess.end) + '</span>' +
+      (night ? '<span class="badge badge-night">Night</span>' : '') +
+      '<span class="act-s-meta">' + (sess.watch ? formatDuration(sess.watch) + ' watched' : 'open ' + (mins ? mins + ' min' : '<1 min') + ', nothing played') +
+        (chans.length ? ' · ' + esc(chans.join(', ')) : '') + '</span>' +
+    '</li>';
+  }
+
+  /* Hard-stop gradient that tints the night hours behind a day strip. */
+  function nightGradient() {
+    var stops = [];
+    for (var h = 0; h < 24; h++) {
+      var c = isNightHour(h) ? 'var(--night)' : 'var(--surface-2)';
+      stops.push(c + ' ' + (h / 24 * 100).toFixed(3) + '% ' + ((h + 1) / 24 * 100).toFixed(3) + '%');
+    }
+    return 'linear-gradient(to right,' + stops.join(',') + ')';
+  }
+
+  function hourOptions(selected) {
+    var out = '';
+    for (var h = 0; h < 24; h++) out += '<option value="' + h + '"' + (h === selected ? ' selected' : '') + '>' + hourLabel(h) + '</option>';
+    return out;
+  }
+
   function activityPanel() {
     var range = session.activityDays || 7;
     var days = ACTIVITY.recentDays(range);
     var slotSec = ACTIVITY.SLOT_MIN * 60, perHour = 60 / ACTIVITY.SLOT_MIN;
-    var total = 0, totalOpen = 0, activeDays = 0, hours = [], channels = {};
+    var night = nightHours();
+    var nightLabel = hourLabel(night.start) + '–' + hourLabel(night.end);
+    var total = 0, totalOpen = 0, activeDays = 0, hours = [], channels = {}, nightSessions = [], nightDays = 0, nightWatch = 0;
     for (var h = 0; h < 24; h++) hours.push(0);
-    days.forEach(function (d) {
+    days.forEach(function (d, i) {
       total += d.watch; totalOpen += d.open;
       if (d.watch > 0) activeDays++;
-      d.w.forEach(function (sec, s) { hours[Math.floor(s / perHour)] += sec; });
+      d.w.forEach(function (sec, s) {
+        hours[Math.floor(s / perHour)] += sec;
+        if (isNightHour(Math.floor(s / perHour))) nightWatch += sec;
+      });
       Object.keys(d.ch).forEach(function (c) { channels[c] = (channels[c] || 0) + d.ch[c]; });
+      var found = d.sessions.filter(isNightSession);
+      if (found.length) nightDays++;
+      found.slice().reverse().forEach(function (sess) { nightSessions.push({ sess: sess, day: dayLabel(d.date, i) }); });
     });
     var peak = hours.indexOf(Math.max.apply(null, hours));
     var maxHour = Math.max.apply(null, hours) || 1;
@@ -280,10 +345,24 @@
         return '<button class="chip' + (n === range ? ' active' : '') + '" data-action="activity-range" data-days="' + n + '">' + n + ' days</button>';
       }).join('') + '</div></div>';
 
+    var nightForm = '<div class="act-night-form muted small">Night hours: from ' +
+      '<select data-role="night-start" aria-label="Night starts">' + hourOptions(night.start) + '</select> to ' +
+      '<select data-role="night-end" aria-label="Night ends">' + hourOptions(night.end) + '</select></div>';
+
     if (!ACTIVITY.hasAny()) {
       return '<section class="panel" id="activity">' + head +
-        '<p class="muted">Nothing recorded yet. Once your child uses kid mode on this device, you’ll see here how long and at what times they watched.</p></section>';
+        '<p class="muted">Nothing recorded yet. Once your child uses kid mode on this device, you’ll see here how long and at what times they watched.</p>' +
+        nightForm + '</section>';
     }
+
+    var nightBox = nightSessions.length
+      ? '<div class="act-alert">' +
+          '<div class="act-alert-title">Used during night hours (' + nightLabel + ') on ' + nightDays + (nightDays === 1 ? ' day' : ' days') + ' in the last ' + range + ' days</div>' +
+          '<div class="small">' + formatDuration(nightWatch) + ' of videos played at night. Every night-time session:</div>' +
+          '<ul class="act-sessions">' + nightSessions.slice(0, 40).map(function (x) { return sessionRow(x.sess, x.day); }).join('') + '</ul>' +
+          (nightSessions.length > 40 ? '<p class="small">…and ' + (nightSessions.length - 40) + ' more.</p>' : '') +
+        '</div>'
+      : '<div class="act-ok">No use during night hours (' + nightLabel + ') in the last ' + range + ' days.</div>';
 
     var stats = '<div class="act-stats">' +
       '<div class="act-stat"><div class="act-num">' + formatDuration(days[0].watch) + '</div><div class="muted small">watched today</div></div>' +
@@ -295,14 +374,15 @@
     var axis = '<div class="act-axis" aria-hidden="true"><span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>12 AM</span></div>';
 
     var byHour = '<h3>Time of day</h3>' +
-      '<p class="muted small">Minutes watched in each hour, added up over the last ' + range + ' days.</p>' +
-      '<div class="act-hours">' + hours.map(function (sec, i) {
+      '<p class="muted small">Minutes watched in each hour, added up over the last ' + range + ' days. Night hours are shaded.</p>' +
+      '<div class="act-hours" style="background:' + nightGradient() + '">' + hours.map(function (sec, i) {
         var pct = Math.round(sec / maxHour * 100);
-        return '<div class="act-hour" title="' + hourLabel(i) + '–' + hourLabel(i + 1) + ': ' + formatDuration(sec) + '"><div class="act-hour-bar" style="height:' + (sec ? Math.max(pct, 3) : 0) + '%"></div></div>';
+        return '<div class="act-hour' + (isNightHour(i) ? ' night' : '') + '" title="' + hourLabel(i) + '–' + hourLabel(i + 1) + ': ' + formatDuration(sec) + '"><div class="act-hour-bar" style="height:' + (sec ? Math.max(pct, 3) : 0) + '%"></div></div>';
       }).join('') + '</div>' + axis;
 
+    var strip = nightGradient();
     var timeline = '<h3>Day by day</h3>' +
-      '<p class="muted small">Each row is one day from midnight to midnight. <span class="act-key act-key-w"></span> video playing <span class="act-key act-key-o"></span> app open, nothing playing</p>' +
+      '<p class="muted small">Each row is one day from midnight to midnight; tap a day to see each session’s start and end time. <span class="act-key act-key-w"></span> video playing <span class="act-key act-key-o"></span> app open, nothing playing <span class="act-key act-key-n"></span> night hours</p>' +
       '<div class="act-days">' + days.map(function (d, i) {
         var cells = '';
         for (var s = 0; s < ACTIVITY.SLOTS; s++) {
@@ -314,20 +394,25 @@
             ? '<i class="w" style="opacity:' + (0.35 + 0.65 * Math.min(1, w / slotSec)).toFixed(2) + '" title="' + when + ': ' + formatDuration(w) + ' watching"></i>'
             : '<i class="o" title="' + when + ': app open"></i>';
         }
-        return '<div class="act-day"><div class="act-day-label">' + esc(dayLabel(d.date, i)) + '</div>' +
-          '<div class="act-strip">' + cells + '</div>' +
+        var hasNight = d.sessions.some(isNightSession);
+        var row = '<div class="act-day"><div class="act-day-label">' + esc(dayLabel(d.date, i)) + (hasNight ? ' <span class="act-moon" title="Used at night">●</span>' : '') + '</div>' +
+          '<div class="act-strip" style="background:' + strip + '">' + cells + '</div>' +
           '<div class="act-day-total">' + (d.watch ? formatDuration(d.watch, true) : d.open ? '<span class="muted">' + formatDuration(0, true) + '</span>' : '') + '</div></div>';
+        if (!d.sessions.length) return row;
+        var id = 'act-' + d.key;
+        return '<details class="act-day-details" data-details="' + id + '"' + (session.open[id] ? ' open' : '') + '><summary>' + row + '</summary>' +
+          '<ul class="act-sessions">' + d.sessions.map(function (sess) { return sessionRow(sess); }).join('') + '</ul></details>';
       }).join('') + '</div>' +
       '<div class="act-day act-day-axis"><div class="act-day-label"></div>' + axis + '<div class="act-day-total"></div></div>';
 
-    var top = Object.keys(channels).sort(function (a, b) { return channels[b] - channels[a]; }).slice(0, 8);
+    var top = topChannels(channels, 8);
     var maxCh = top.length ? channels[top[0]] : 1;
     var chans = top.length ? '<h3>Most watched channels</h3><ul class="act-channels">' + top.map(function (c) {
       return '<li><span class="act-ch-name">' + esc(c) + '</span><span class="act-ch-bar"><span style="width:' + Math.max(2, Math.round(channels[c] / maxCh * 100)) + '%"></span></span><span class="act-ch-time">' + formatDuration(channels[c], true) + '</span></li>';
     }).join('') + '</ul>' : '';
 
-    return '<section class="panel" id="activity">' + head + stats + byHour + timeline + chans +
-      '<p class="muted small">Kid mode was open ' + formatDuration(totalOpen) + ' in total over these ' + range + ' days. Activity is recorded only on this device and kept for 60 days.</p>' +
+    return '<section class="panel" id="activity">' + head + nightBox + nightForm + stats + byHour + timeline + chans +
+      '<p class="muted small">Kid mode was open ' + formatDuration(totalOpen) + ' in total over these ' + range + ' days. A break of more than 2 minutes starts a new session. Activity is recorded only on this device and kept for 60 days.</p>' +
       '<div class="btn-row"><button class="btn btn-small" data-action="clear-activity">Clear activity history</button></div>' +
     '</section>';
   }
@@ -1895,6 +1980,12 @@
       session.seeking = false;
       if (player && player.seekTo) { try { player.seekTo(parseInt(e.target.value, 10) || 0, true); } catch (err) { /* ignore */ } }
       updateSeekRow();
+      return;
+    }
+    if (e.target.dataset.role === 'night-start' || e.target.dataset.role === 'night-end') {
+      state.settings[e.target.dataset.role === 'night-start' ? 'nightStart' : 'nightEnd'] = parseInt(e.target.value, 10) || 0;
+      persist();
+      var y = window.scrollY; render(); window.scrollTo(0, y);
       return;
     }
     if (e.target.dataset.role === 'share-api-key') { session.shareApiKey = e.target.checked; session.shareLink = ''; render(); }

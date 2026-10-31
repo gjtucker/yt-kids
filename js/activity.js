@@ -10,8 +10,11 @@
   var SLOT_MIN = 15;
   var SLOTS = 24 * 60 / SLOT_MIN;
   var SAVE_EVERY_MS = 15000;
+  // A break longer than this starts a new session.
+  var SESSION_GAP_S = 120;
 
-  // days[YYYY-MM-DD] = { w: {slot: seconds watching}, o: {slot: seconds open}, ch: {channel: seconds watching} }
+  // days[YYYY-MM-DD] = { w: {slot: seconds watching}, o: {slot: seconds open}, ch: {channel: seconds watching},
+  //                      s: [[startEpochSec, endEpochSec, secondsWatching, {channel: seconds}], ...] }
   var data = load();
   var dirty = false, lastSave = 0;
 
@@ -51,14 +54,28 @@
     var key = dayKey(now);
     var slot = Math.floor((now.getHours() * 60 + now.getMinutes()) / SLOT_MIN);
     var day = data.days[key] || (data.days[key] = { w: {}, o: {}, ch: {} });
-    day.o[slot] = Math.round(((day.o[slot] || 0) + seconds) * 10) / 10;
+    day.o[slot] = round1((day.o[slot] || 0) + seconds);
+    var t = Math.round(now.getTime() / 1000);
+    var list = day.s || (day.s = []);
+    var last = list[list.length - 1];
+    if (!last || t - last[1] > SESSION_GAP_S) {
+      last = [Math.round(t - seconds), t, 0, {}];
+      list.push(last);
+    }
+    last[1] = t;
     if (watching) {
-      day.w[slot] = Math.round(((day.w[slot] || 0) + seconds) * 10) / 10;
-      if (channel) day.ch[channel] = Math.round(((day.ch[channel] || 0) + seconds) * 10) / 10;
+      day.w[slot] = round1((day.w[slot] || 0) + seconds);
+      last[2] = round1(last[2] + seconds);
+      if (channel) {
+        day.ch[channel] = round1((day.ch[channel] || 0) + seconds);
+        last[3][channel] = round1((last[3][channel] || 0) + seconds);
+      }
     }
     dirty = true;
     if (Date.now() - lastSave > SAVE_EVERY_MS) save();
   }
+
+  function round1(n) { return Math.round(n * 10) / 10; }
 
   /* The last `count` days, newest first, each with per-slot arrays. */
   function recentDays(count) {
@@ -72,7 +89,10 @@
         w.push(day.w[s] || 0); o.push(day.o[s] || 0);
         watch += day.w[s] || 0; open += day.o[s] || 0;
       }
-      out.push({ key: key, date: new Date(d.getFullYear(), d.getMonth(), d.getDate()), w: w, o: o, ch: day.ch || {}, watch: watch, open: open });
+      var sessions = (day.s || []).map(function (x) {
+        return { start: new Date(x[0] * 1000), end: new Date(x[1] * 1000), watch: x[2], ch: x[3] || {} };
+      });
+      out.push({ key: key, date: new Date(d.getFullYear(), d.getMonth(), d.getDate()), w: w, o: o, ch: day.ch || {}, watch: watch, open: open, sessions: sessions });
       d.setDate(d.getDate() - 1);
     }
     return out;

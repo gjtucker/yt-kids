@@ -43,6 +43,11 @@ extends it. Parent mode also has **Start now** and **Lock now** buttons.
 Parent mode has an **Activity** panel showing how the kid side of the app is
 used on this device, for the last 7, 14 or 30 days:
 
+* **Night-time use**: night hours are 9 PM to 6 AM by default (change them
+  in the panel). If kid mode was used at night in the period, a red box at
+  the top lists every such session with its exact start and end time, how
+  much was watched and which channels, e.g. *Yesterday 2:17 AM – 2:56 AM,
+  35 min watched*. Otherwise it says there was no night-time use.
 * **Totals**: time watched today, the daily average, the total for the
   period and the busiest hour of the day.
 * **Time of day**: a bar per hour (12 AM to 12 AM) with the minutes watched
@@ -50,8 +55,10 @@ used on this device, for the last 7, 14 or 30 days:
   (after school, before bed, early mornings).
 * **Day by day**: one row per day, midnight to midnight, in 15-minute
   blocks. Blue blocks mean a video was playing (darker = more of those 15
-  minutes); grey means kid mode was open but nothing was playing. Each row
-  ends with that day's total.
+  minutes); grey means kid mode was open but nothing was playing; night
+  hours are shaded, and a red dot marks days with night-time use. Each row
+  ends with that day's total. Tap a day to list its sessions with start and
+  end times (a break of more than 2 minutes starts a new session).
 * **Most watched channels** for the period.
 
 Only time actually on screen counts: a hidden tab, a locked screen or parent
@@ -280,14 +287,15 @@ manifest.webmanifest  "Add to Home Screen" support
 ## Data model
 
 ```js
-settings = { parentPinHash, childName, apiKey, blockYouTubeLinks, useYouTubeSignIn, watchMinutes }
+settings = { parentPinHash, childName, apiKey, blockYouTubeLinks, useYouTubeSignIn, watchMinutes, nightStart, nightEnd }
 watch    = { until }   // ms timestamp when the current unlock expires
 sources  = [{ id, type: "video" | "channel", youtubeId, title, channelName, addedAt,
               // channels only:
               uploadsPlaylistId, thumbnail, lastSyncedAt }]
 videos   = [{ youtubeId, title, channelName, thumbnail, sourceId, publishedAt, addedAt, hidden }]
 // separate entry "kidtube.activity", seconds per 15-minute slot (0-95) per local day
-activity = { days: { "YYYY-MM-DD": { w: { slot: watching }, o: { slot: open }, ch: { channelName: watching } } } }
+activity = { days: { "YYYY-MM-DD": { w: { slot: watching }, o: { slot: open }, ch: { channelName: watching },
+                                    s: [[startSec, endSec, watching, { channelName: watching }]] } } }
 ```
 
 ## Non-goals (for now)

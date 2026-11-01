@@ -10,7 +10,7 @@
   function defaults() {
     return {
       version: 1,
-      settings: { parentPinHash: null, childName: 'My Videos', apiKey: '', blockYouTubeLinks: true, useYouTubeSignIn: false, watchMinutes: 15, nightStart: 21, nightEnd: 6 },
+      settings: { parentPinHash: null, childName: 'My Videos', apiKey: '', blockYouTubeLinks: true, useYouTubeSignIn: false, autoplayNext: false, watchMinutes: 15, nightStart: 21, nightEnd: 6 },
       watch: { until: 0 },
       explore: { suggestions: [], scannedAt: null, dismissed: {} },
       channelWatched: {},
@@ -105,7 +105,7 @@
       app: 'kidtube',
       version: 1,
       exportedAt: new Date().toISOString(),
-      settings: { childName: state.settings.childName, apiKey: state.settings.apiKey, blockYouTubeLinks: state.settings.blockYouTubeLinks, useYouTubeSignIn: state.settings.useYouTubeSignIn, watchMinutes: state.settings.watchMinutes },
+      settings: { childName: state.settings.childName, apiKey: state.settings.apiKey, blockYouTubeLinks: state.settings.blockYouTubeLinks, useYouTubeSignIn: state.settings.useYouTubeSignIn, autoplayNext: state.settings.autoplayNext, watchMinutes: state.settings.watchMinutes },
       sources: state.sources,
       videos: state.videos
     }, compact, 2);
@@ -140,6 +140,7 @@
       if (data.settings.apiKey && !state.settings.apiKey) state.settings.apiKey = data.settings.apiKey;
       if (typeof data.settings.blockYouTubeLinks === 'boolean') state.settings.blockYouTubeLinks = data.settings.blockYouTubeLinks;
       if (typeof data.settings.useYouTubeSignIn === 'boolean') state.settings.useYouTubeSignIn = data.settings.useYouTubeSignIn;
+      if (typeof data.settings.autoplayNext === 'boolean') state.settings.autoplayNext = data.settings.autoplayNext;
       if (typeof data.settings.watchMinutes === 'number') state.settings.watchMinutes = data.settings.watchMinutes;
     }
     return added;
@@ -183,6 +184,7 @@
     if (typeof state.settings.watchMinutes === 'number') parts.push('m=' + state.settings.watchMinutes);
     if (state.settings.blockYouTubeLinks === false) parts.push('b=0');
     if (state.settings.useYouTubeSignIn) parts.push('s=1');
+    if (state.settings.autoplayNext) parts.push('a=1');
     if (includeApiKey && state.settings.apiKey) parts.push('k=' + encodeURIComponent(state.settings.apiKey));
     return '2.' + parts.join('&');
   }
@@ -216,6 +218,7 @@
     if (q.m !== undefined && !isNaN(parseInt(q.m, 10))) settings.watchMinutes = parseInt(q.m, 10);
     if (q.b === '0') settings.blockYouTubeLinks = false;
     if (q.s === '1') settings.useYouTubeSignIn = true;
+    if (q.a === '1') settings.autoplayNext = true;
     if (q.k) settings.apiKey = decodeURIComponent(q.k);
     return { app: 'kidtube', version: 2, compact: true, settings: settings, sources: sources, videos: videos,
       hiddenIds: (q.h ? q.h.split(',') : []).filter(function (id) { return ID_RE.test(id); }) };
@@ -226,6 +229,7 @@
       childName: state.settings.childName,
       blockYouTubeLinks: state.settings.blockYouTubeLinks,
       useYouTubeSignIn: state.settings.useYouTubeSignIn,
+      autoplayNext: state.settings.autoplayNext,
       watchMinutes: state.settings.watchMinutes
     };
     if (includeApiKey && state.settings.apiKey) settings.apiKey = state.settings.apiKey;

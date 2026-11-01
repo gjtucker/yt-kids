@@ -222,8 +222,8 @@
   }
 
   /* ---------------- activity log ----------------
-     Counts time the kid side is on screen, and how much of it a video was
-     actually playing, for the Activity panel in parent mode. */
+     Counts time a video is actually playing on the kid side, for the
+     Activity panel in parent mode. */
 
   function trackActivity() {
     var now = Date.now(), last = session.lastTrack || now;
@@ -236,8 +236,10 @@
     // Without the player API (plain embed) we can't see play/pause, so the
     // whole time on the watch page counts as watching.
     var watching = name === 'watch' && (player ? !!session.playing : !!root.querySelector('.player iframe'));
-    var v = watching && findVideo(session.currentVideoId);
-    ACTIVITY.add(seconds, watching, v ? v.channelName || 'Other videos' : '');
+    // Only time with a video playing counts; browsing or a stopped video doesn't.
+    if (!watching) return;
+    var v = findVideo(session.currentVideoId);
+    ACTIVITY.add(seconds, true, v ? v.channelName || 'Other videos' : '');
   }
 
   /* "1 h 5 min", or "1h 5m" where space is tight. */
@@ -290,13 +292,12 @@
   /* One line per session: "2:14 AM – 2:51 AM · 31 min watched · Channel". */
   function sessionRow(sess, dayName) {
     var night = isNightSession(sess);
-    var mins = Math.round((sess.end - sess.start) / 60000);
     var chans = topChannels(sess.ch, 3);
     return '<li class="act-session' + (night ? ' night' : '') + '">' +
       (dayName ? '<span class="act-s-day">' + esc(dayName) + '</span>' : '') +
       '<span class="act-s-time">' + clock(sess.start) + ' – ' + clock(sess.end) + '</span>' +
       (night ? '<span class="badge badge-night">Night</span>' : '') +
-      '<span class="act-s-meta">' + (sess.watch ? formatDuration(sess.watch) + ' watched' : 'open ' + (mins ? mins + ' min' : '<1 min') + ', nothing played') +
+      '<span class="act-s-meta">' + formatDuration(sess.watch) + ' watched' +
         (chans.length ? ' · ' + esc(chans.join(', ')) : '') + '</span>' +
     '</li>';
   }
@@ -323,16 +324,17 @@
     var slotSec = ACTIVITY.SLOT_MIN * 60, perHour = 60 / ACTIVITY.SLOT_MIN;
     var night = nightHours();
     var nightLabel = hourLabel(night.start) + '–' + hourLabel(night.end);
-    var total = 0, totalOpen = 0, activeDays = 0, hours = [], channels = {}, nightSessions = [], nightDays = 0, nightWatch = 0;
+    var total = 0, activeDays = 0, hours = [], channels = {}, nightSessions = [], nightDays = 0, nightWatch = 0;
     for (var h = 0; h < 24; h++) hours.push(0);
     days.forEach(function (d, i) {
-      total += d.watch; totalOpen += d.open;
+      total += d.watch;
       if (d.watch > 0) activeDays++;
       d.w.forEach(function (sec, s) {
         hours[Math.floor(s / perHour)] += sec;
         if (isNightHour(Math.floor(s / perHour))) nightWatch += sec;
       });
       Object.keys(d.ch).forEach(function (c) { channels[c] = (channels[c] || 0) + d.ch[c]; });
+      d.sessions = d.sessions.filter(function (x) { return x.watch > 0; }); // older logs also kept idle time
       var found = d.sessions.filter(isNightSession);
       if (found.length) nightDays++;
       found.slice().reverse().forEach(function (sess) { nightSessions.push({ sess: sess, day: dayLabel(d.date, i) }); });
@@ -351,7 +353,7 @@
 
     if (!ACTIVITY.hasAny()) {
       return '<section class="panel" id="activity">' + head +
-        '<p class="muted">Nothing recorded yet. Once your child uses kid mode on this device, you’ll see here how long and at what times they watched.</p>' +
+        '<p class="muted">Nothing recorded yet. Once your child watches videos on this device, you’ll see here how long and at what times.</p>' +
         nightForm + '</section>';
     }
 
@@ -382,22 +384,20 @@
 
     var strip = nightGradient();
     var timeline = '<h3>Day by day</h3>' +
-      '<p class="muted small">Each row is one day from midnight to midnight; tap a day to see each session’s start and end time. <span class="act-key act-key-w"></span> video playing <span class="act-key act-key-o"></span> app open, nothing playing <span class="act-key act-key-n"></span> night hours</p>' +
+      '<p class="muted small">Each row is one day from midnight to midnight; tap a day to see each session’s start and end time. <span class="act-key act-key-w"></span> video playing <span class="act-key act-key-n"></span> night hours</p>' +
       '<div class="act-days">' + days.map(function (d, i) {
         var cells = '';
         for (var s = 0; s < ACTIVITY.SLOTS; s++) {
-          var w = d.w[s], o = d.o[s];
-          if (!w && !o) { cells += '<i></i>'; continue; }
+          var w = d.w[s];
+          if (!w) { cells += '<i></i>'; continue; }
           var start = s * ACTIVITY.SLOT_MIN;
           var when = hourLabel(Math.floor(start / 60)).replace(' ', ':' + ('0' + start % 60).slice(-2) + ' ');
-          cells += w
-            ? '<i class="w" style="opacity:' + (0.35 + 0.65 * Math.min(1, w / slotSec)).toFixed(2) + '" title="' + when + ': ' + formatDuration(w) + ' watching"></i>'
-            : '<i class="o" title="' + when + ': app open"></i>';
+          cells += '<i class="w" style="opacity:' + (0.35 + 0.65 * Math.min(1, w / slotSec)).toFixed(2) + '" title="' + when + ': ' + formatDuration(w) + ' watching"></i>';
         }
         var hasNight = d.sessions.some(isNightSession);
         var row = '<div class="act-day"><div class="act-day-label">' + esc(dayLabel(d.date, i)) + (hasNight ? ' <span class="act-moon" title="Used at night">●</span>' : '') + '</div>' +
           '<div class="act-strip" style="background:' + strip + '">' + cells + '</div>' +
-          '<div class="act-day-total">' + (d.watch ? formatDuration(d.watch, true) : d.open ? '<span class="muted">' + formatDuration(0, true) + '</span>' : '') + '</div></div>';
+          '<div class="act-day-total">' + (d.watch ? formatDuration(d.watch, true) : '') + '</div></div>';
         if (!d.sessions.length) return row;
         var id = 'act-' + d.key;
         return '<details class="act-day-details" data-details="' + id + '"' + (session.open[id] ? ' open' : '') + '><summary>' + row + '</summary>' +
@@ -412,7 +412,7 @@
     }).join('') + '</ul>' : '';
 
     return '<section class="panel" id="activity">' + head + nightBox + nightForm + stats + byHour + timeline + chans +
-      '<p class="muted small">Kid mode was open ' + formatDuration(totalOpen) + ' in total over these ' + range + ' days. A break of more than 2 minutes starts a new session. Activity is recorded only on this device and kept for 60 days.</p>' +
+      '<p class="muted small">Only time with a video playing counts. A pause or break of more than 2 minutes starts a new session. Activity is recorded only on this device and kept for 60 days.</p>' +
       '<div class="btn-row"><button class="btn btn-small" data-action="clear-activity">Clear activity history</button></div>' +
     '</section>';
   }
@@ -707,7 +707,7 @@
         '<span class="channel-row-name">' + esc(v.channelName) + '</span></a>';
   }
 
-  /* What the sidebar currently shows; its first item is what autoplays next. */
+  /* What the sidebar currently shows; its first item is what autoplays next (if autoplay is on). */
   function recommendedVideos() {
     var v = findVideo(session.currentVideoId);
     if (!v) return [];
@@ -900,16 +900,20 @@
     } else if (e.data === states.ENDED) {
       session.watched = session.watched || {};
       session.watched[session.currentVideoId] = true;
-      var next = recommendedVideos()[0];
+      // Off by default: a video that ends stops there, so a child who
+      // falls asleep doesn't keep the videos (and the activity log) going.
+      var next = state.settings.autoplayNext && recommendedVideos()[0];
       if (next && playInPlace(next)) return;
       destroyPlayer();
-      showPlayerScreen('<div class="end-title">All done!</div>');
+      showPlayerScreen('<div class="end-title">' + (state.settings.autoplayNext ? 'All done!' : 'That’s the end of the video') + '</div>' +
+        (state.settings.autoplayNext ? '' : '<div class="end-sub">Pick another video to keep watching.</div>'));
     }
   }
 
   function showPlayerScreen(message) {
     var box = root.querySelector('.player');
     if (!box) return;
+    var row = root.querySelector('[data-role="seek-row"]'); if (row) row.hidden = true;
     box.innerHTML = '<div class="end-screen">' + message +
       '<div class="btn-row">' +
         '<button class="btn btn-primary" data-action="replay">' + icon('replay') + 'Watch again</button>' +
@@ -1205,6 +1209,7 @@
           '<label>YouTube Data API key (optional, needed for channels)<input type="password" name="apiKey" value="' + esc(state.settings.apiKey) + '" autocomplete="off" placeholder="AIza…"></label>' +
           '<p class="muted small">Create a free key in Google Cloud Console (YouTube Data API v3). It is stored only in this browser. See the README for steps.</p>' +
           '<label class="check"><input type="checkbox" name="blockYouTubeLinks"' + (state.settings.blockYouTubeLinks !== false ? ' checked' : '') + '> Block links to youtube.com inside the player <span class="muted small">(recommended; turn off if videos show as unavailable)</span></label>' +
+          '<label class="check"><input type="checkbox" name="autoplayNext"' + (state.settings.autoplayNext ? ' checked' : '') + '> Play the next video automatically when one ends <span class="muted small">(off: each video stops at the end, so nothing keeps playing if your child falls asleep)</span></label>' +
           '<label class="check"><input type="checkbox" name="useYouTubeSignIn"' + (state.settings.useYouTubeSignIn ? ' checked' : '') + '> Use my YouTube sign-in <span class="muted small">(with YouTube Premium, videos play without ads; sign in to youtube.com in this browser first)</span></label>' +
           '<button class="btn" type="submit">Save settings</button>' +
         '</form>' +
@@ -1948,6 +1953,7 @@
         state.settings.apiKey = form.apiKey.value.trim();
         state.settings.blockYouTubeLinks = form.blockYouTubeLinks.checked;
         state.settings.useYouTubeSignIn = form.useYouTubeSignIn.checked;
+        state.settings.autoplayNext = form.autoplayNext.checked;
         persist();
         setStatus('ok', 'Settings saved.', 'settings');
         if (state.settings.apiKey) checkPlayability().then(function (n) { if (n) { persist(); setStatus('ok', n + (n === 1 ? ' video that can’t' : ' videos that can’t') + ' be embedded ' + (n === 1 ? 'is' : 'are') + ' now kept out of kid mode.', 'library'); } });

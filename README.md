@@ -55,15 +55,15 @@ used on this device, for the last 7, 14 or 30 days:
   (after school, before bed, early mornings).
 * **Day by day**: one row per day, midnight to midnight, in 15-minute
   blocks. Blue blocks mean a video was playing (darker = more of those 15
-  minutes); grey means kid mode was open but nothing was playing; night
-  hours are shaded, and a red dot marks days with night-time use. Each row
+  minutes); night hours are shaded, and a red dot marks days with night-time use. Each row
   ends with that day's total. Tap a day to list its sessions with start and
-  end times (a break of more than 2 minutes starts a new session).
+  end times (a pause or break of more than 2 minutes starts a new session).
 * **Most watched channels** for the period.
 
-Only time actually on screen counts: a hidden tab, a locked screen or parent
-mode adds nothing. "Watching" means the player reported it was playing; if
-the player API can't load, time on the watch page counts as watching. The
+Only time with a video playing counts: browsing the library, a paused or
+finished video, a hidden tab, the lock screen or parent mode add nothing.
+"Playing" is what the player reports; if the player API can't load, time on
+the watch page counts as playing. The
 log is stored in its own `localStorage` entry, kept for 60 days, never
 included in backups or share links, and can be cleared from the panel.
 
@@ -75,12 +75,16 @@ Videos play in the official YouTube embed through the IFrame Player API:
   videos drawn only from the approved library: a couple from the same channel
   first, then the rest freshly shuffled each time a video starts, with
   "All" / "From this channel" chips. On tablets in landscape the list is a
-  two-column grid beside the player, as on m.youtube.com. When
-  a video ends the top recommendation plays next in the same player, like
-  YouTube's autoplay; tapping any card plays it immediately. Videos already
+  two-column grid beside the player, as on m.youtube.com. Tapping any card
+  plays it immediately.
+* **No autoplay by default.** When a video ends it stops, with *Watch again*
+  and *Back to videos* buttons, so nothing keeps playing if the child falls
+  asleep (and the activity log isn't padded by unattended videos). Turn on
+  "Play the next video automatically" in Parent mode → Settings to have the
+  top recommendation play next in the same player, like YouTube's autoplay. Videos already
   watched in the session drop to the bottom of the list.
-* When the queue runs out, the app replaces YouTube's end screen with its own
-  "All done" screen offering *Watch again* and *Back to videos*.
+* With autoplay on, when the queue runs out the app replaces YouTube's end
+  screen with its own "All done" screen.
 * If a video that is not in the library keeps playing for more than half a
   minute (for example one picked from the suggestions YouTube shows while
   paused), playback is stopped and the child is sent back to the library. The
@@ -287,7 +291,7 @@ manifest.webmanifest  "Add to Home Screen" support
 ## Data model
 
 ```js
-settings = { parentPinHash, childName, apiKey, blockYouTubeLinks, useYouTubeSignIn, watchMinutes, nightStart, nightEnd }
+settings = { parentPinHash, childName, apiKey, blockYouTubeLinks, useYouTubeSignIn, autoplayNext, watchMinutes, nightStart, nightEnd }
 watch    = { until }   // ms timestamp when the current unlock expires
 sources  = [{ id, type: "video" | "channel", youtubeId, title, channelName, addedAt,
               // channels only:

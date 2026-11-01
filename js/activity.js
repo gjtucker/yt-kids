@@ -1,5 +1,5 @@
-/* Activity log for parents: how long kid mode was open and how long videos
-   actually played, in 15-minute slots per local day. Kept in its own
+/* Activity log for parents: how long videos actually played, in 15-minute
+   slots and as sessions with start/end times, per local day. Kept in its own
    localStorage entry (written every few seconds while watching), separate
    from the library, and trimmed to the last DAYS_KEPT days. */
 (function () {
@@ -46,8 +46,8 @@
     dirty = false; lastSave = Date.now();
   }
 
-  /* Add `seconds` of kid-mode time ending now. `watching` means a video was
-     playing; `channel` is credited with the watching time. */
+  /* Add `seconds` of time ending now. The app only calls this while a video
+     is playing (`watching`); `channel` is credited with that time. */
   function add(seconds, watching, channel) {
     if (!(seconds > 0)) return;
     var now = new Date();

@@ -232,6 +232,7 @@ h2 { font-size: 1rem; }
   gap: 20px; padding: 16px; text-align: center; background: #0f0f0f; color: #fff;
 }
 .end-title { font-size: 1.4rem; font-weight: 500; }
+.end-sub { opacity: .8; margin-top: -4px; }
 .end-screen .btn-row { justify-content: center; }
 .end-screen .btn { background: rgba(255,255,255,.1); color: #fff; }
 .end-screen .btn-primary { background: #fff; color: #0f0f0f; }
@@ -389,11 +390,9 @@ select { width: auto; }
 .act-strip i { display: block; }
 .act-strip i:nth-child(24n+1) { box-shadow: inset 1px 0 0 var(--line); }
 .act-strip i.w { background: var(--link); }
-.act-strip i.o { background: var(--hover); }
 .act-day-axis .act-axis { margin-top: 2px; }
 .act-key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-left: 6px; }
 .act-key-w { background: var(--link); }
-.act-key-o { background: var(--hover); }
 .act-channels { list-style: none; margin: 0; padding: 0; }
 .act-channels li { display: flex; align-items: center; gap: 10px; padding: 4px 0; font-size: 0.85rem; }
 .act-ch-name { width: 40%; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

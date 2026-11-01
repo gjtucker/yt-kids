@@ -243,6 +243,67 @@
   }
 
   /* "1 h 5 min", or "1h 5m" where space is tight. */
+  /* Taps and key presses on the kid side, so the Activity panel can spot a
+     video that kept playing while nobody touched anything (asleep?). Taps
+     inside the YouTube player are mostly invisible to the page: the first
+     one moves focus into the player, and pausing or resuming reports a
+     player state change; both count. */
+  function noteInteraction() {
+    if (['parent', 'unlock', 'import', 'sample'].indexOf(route().name) !== -1) return;
+    var now = Date.now();
+    if (now - (session.lastInteraction || 0) < 1000) return; // one per second is plenty
+    session.lastInteraction = now;
+    ACTIVITY.tap();
+  }
+
+  function quietMinutes() {
+    return state.settings.quietMinutes || 20;
+  }
+
+  /* Stretches where a video kept playing with no tap for at least
+     quietMinutes(). Sessions split at midnight (or by a short gap) are joined
+     first so the clock keeps running across them. `days` is newest first;
+     returns [{ start, end }] in ms, oldest first. */
+  function quietStretches(days) {
+    var limit = quietMinutes() * 60000;
+    var taps = [];
+    days.forEach(function (d) { Object.keys(d.taps).forEach(function (m) { taps.push(m * 60000); }); });
+    taps.sort(function (a, b) { return a - b; });
+    var merged = [];
+    days.slice().reverse().forEach(function (d) {
+      d.sessions.forEach(function (x) {
+        var prev = merged[merged.length - 1];
+        var start = x.start.getTime(), end = x.end.getTime();
+        if (prev && start - prev.end <= 120000) prev.end = Math.max(prev.end, end);
+        else merged.push({ start: start, end: end });
+      });
+    });
+    var out = [];
+    merged.forEach(function (m) {
+      // Playback starts with a tap (autoplay is off unless a parent turns it on).
+      var points = [m.start].concat(taps.filter(function (t) { return t > m.start && t <= m.end; }), [m.end]);
+      for (var i = 1; i < points.length; i++) {
+        if (points[i] - points[i - 1] >= limit) out.push({ start: points[i - 1], end: points[i] });
+      }
+    });
+    return out;
+  }
+
+  /* Taps in a session (including the one that started it) and the longest
+     no-tap stretch inside it, in minutes. */
+  function sessionTaps(sess, tapCounts, quiet) {
+    var a = Math.floor(sess.start.getTime() / 60000) - 1, b = Math.floor(sess.end.getTime() / 60000);
+    var n = 0;
+    for (var m = a; m <= b; m++) n += tapCounts[m] || 0;
+    var longest = 0;
+    quiet.forEach(function (q) {
+      var o = Math.min(q.end, sess.end.getTime()) - Math.max(q.start, sess.start.getTime());
+      if (o > 0) longest = Math.max(longest, q.end - q.start);
+    });
+    sess.tapCount = n;
+    sess.quietMin = Math.round(longest / 60000);
+  }
+
   function formatDuration(seconds, short) {
     var m = Math.round(seconds / 60);
     var h = short ? 'h' : ' h', min = short ? 'm' : ' min';
@@ -297,7 +358,9 @@
       (dayName ? '<span class="act-s-day">' + esc(dayName) + '</span>' : '') +
       '<span class="act-s-time">' + clock(sess.start) + ' – ' + clock(sess.end) + '</span>' +
       (night ? '<span class="badge badge-night">Night</span>' : '') +
+      (sess.quietMin ? '<span class="badge badge-quiet">No taps for ' + formatDuration(sess.quietMin * 60) + '</span>' : '') +
       '<span class="act-s-meta">' + formatDuration(sess.watch) + ' watched' +
+        (sess.tapCount !== undefined ? ' · ' + sess.tapCount + (sess.tapCount === 1 ? ' tap' : ' taps') : '') +
         (chans.length ? ' · ' + esc(chans.join(', ')) : '') + '</span>' +
     '</li>';
   }
@@ -320,7 +383,15 @@
 
   function activityPanel() {
     var range = session.activityDays || 7;
-    var days = ACTIVITY.recentDays(range);
+    // One extra day so a stretch running past midnight into the range is seen whole.
+    var allDays = ACTIVITY.recentDays(range + 1);
+    allDays.forEach(function (d) { d.sessions = d.sessions.filter(function (x) { return x.watch > 0; }); }); // older logs also kept idle time
+    var days = allDays.slice(0, range);
+    var rangeStart = days[days.length - 1].date.getTime();
+    var quiet = quietStretches(allDays).filter(function (q) { return q.end > rangeStart; });
+    var tapCounts = {};
+    allDays.forEach(function (d) { Object.keys(d.taps).forEach(function (m) { tapCounts[m] = d.taps[m]; }); });
+    allDays.forEach(function (d) { d.sessions.forEach(function (x) { sessionTaps(x, tapCounts, quiet); }); });
     var slotSec = ACTIVITY.SLOT_MIN * 60, perHour = 60 / ACTIVITY.SLOT_MIN;
     var night = nightHours();
     var nightLabel = hourLabel(night.start) + '–' + hourLabel(night.end);
@@ -334,7 +405,6 @@
         if (isNightHour(Math.floor(s / perHour))) nightWatch += sec;
       });
       Object.keys(d.ch).forEach(function (c) { channels[c] = (channels[c] || 0) + d.ch[c]; });
-      d.sessions = d.sessions.filter(function (x) { return x.watch > 0; }); // older logs also kept idle time
       var found = d.sessions.filter(isNightSession);
       if (found.length) nightDays++;
       found.slice().reverse().forEach(function (sess) { nightSessions.push({ sess: sess, day: dayLabel(d.date, i) }); });
@@ -349,7 +419,11 @@
 
     var nightForm = '<div class="act-night-form muted small">Night hours: from ' +
       '<select data-role="night-start" aria-label="Night starts">' + hourOptions(night.start) + '</select> to ' +
-      '<select data-role="night-end" aria-label="Night ends">' + hourOptions(night.end) + '</select></div>';
+      '<select data-role="night-end" aria-label="Night ends">' + hourOptions(night.end) + '</select>' +
+      '<br>Flag playing with no taps for ' +
+      '<select data-role="quiet-minutes" aria-label="Flag playing with no taps for">' + [10, 15, 20, 30, 45, 60].map(function (m) {
+        return '<option value="' + m + '"' + (m === quietMinutes() ? ' selected' : '') + '>' + m + ' min</option>';
+      }).join('') + '</select></div>';
 
     if (!ACTIVITY.hasAny()) {
       return '<section class="panel" id="activity">' + head +
@@ -365,6 +439,23 @@
           (nightSessions.length > 40 ? '<p class="small">…and ' + (nightSessions.length - 40) + ' more.</p>' : '') +
         '</div>'
       : '<div class="act-ok">No use during night hours (' + nightLabel + ') in the last ' + range + ' days.</div>';
+
+    var today0 = days[0].date.getTime();
+    var quietBox = quiet.length
+      ? '<div class="act-alert act-alert-quiet">' +
+          '<div class="act-alert-title">Kept playing with no taps for ' + quietMinutes() + '+ minutes, ' + quiet.length + (quiet.length === 1 ? ' time' : ' times') + '</div>' +
+          '<div class="small">Nobody touched the screen while these played, so your child may have fallen asleep or walked away:</div>' +
+          '<ul class="act-sessions">' + quiet.slice().reverse().slice(0, 40).map(function (q) {
+            var start = new Date(q.start), end = new Date(q.end);
+            var day0 = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
+            var night = isNightHour(start.getHours()) || isNightHour(end.getHours());
+            return '<li class="act-session' + (night ? ' night' : '') + '"><span class="act-s-day">' + esc(dayLabel(start, Math.round((today0 - day0) / 86400000))) + '</span>' +
+              '<span class="act-s-time">' + clock(start) + ' – ' + clock(end) + '</span>' +
+              (night ? '<span class="badge badge-night">Night</span>' : '') +
+              '<span class="act-s-meta">' + formatDuration((q.end - q.start) / 1000) + ' with no taps</span></li>';
+          }).join('') + '</ul>' +
+        '</div>'
+      : '<div class="act-ok">No video kept playing for ' + quietMinutes() + '+ minutes without a tap in the last ' + range + ' days.</div>';
 
     var stats = '<div class="act-stats">' +
       '<div class="act-stat"><div class="act-num">' + formatDuration(days[0].watch) + '</div><div class="muted small">watched today</div></div>' +
@@ -384,7 +475,7 @@
 
     var strip = nightGradient();
     var timeline = '<h3>Day by day</h3>' +
-      '<p class="muted small">Each row is one day from midnight to midnight; tap a day to see each session’s start and end time. <span class="act-key act-key-w"></span> video playing <span class="act-key act-key-n"></span> night hours</p>' +
+      '<p class="muted small">Each row is one day from midnight to midnight; tap a day to see each session’s start and end time. <span class="act-key act-key-w"></span> video playing <span class="act-key act-key-q"></span> playing, no taps for ' + quietMinutes() + '+ min <span class="act-key act-key-n"></span> night hours</p>' +
       '<div class="act-days">' + days.map(function (d, i) {
         var cells = '';
         for (var s = 0; s < ACTIVITY.SLOTS; s++) {
@@ -392,7 +483,9 @@
           if (!w) { cells += '<i></i>'; continue; }
           var start = s * ACTIVITY.SLOT_MIN;
           var when = hourLabel(Math.floor(start / 60)).replace(' ', ':' + ('0' + start % 60).slice(-2) + ' ');
-          cells += '<i class="w" style="opacity:' + (0.35 + 0.65 * Math.min(1, w / slotSec)).toFixed(2) + '" title="' + when + ': ' + formatDuration(w) + ' watching"></i>';
+          var a = d.date.getTime() + start * 60000, b = a + slotSec * 1000;
+          var isQuiet = quiet.some(function (q) { return q.start < b && q.end > a; });
+          cells += '<i class="w' + (isQuiet ? ' q' : '') + '" style="opacity:' + (0.35 + 0.65 * Math.min(1, w / slotSec)).toFixed(2) + '" title="' + when + ': ' + formatDuration(w) + ' watching' + (isQuiet ? ', no taps' : '') + '"></i>';
         }
         var hasNight = d.sessions.some(isNightSession);
         var row = '<div class="act-day"><div class="act-day-label">' + esc(dayLabel(d.date, i)) + (hasNight ? ' <span class="act-moon" title="Used at night">●</span>' : '') + '</div>' +
@@ -411,8 +504,8 @@
       return '<li><span class="act-ch-name">' + esc(c) + '</span><span class="act-ch-bar"><span style="width:' + Math.max(2, Math.round(channels[c] / maxCh * 100)) + '%"></span></span><span class="act-ch-time">' + formatDuration(channels[c], true) + '</span></li>';
     }).join('') + '</ul>' : '';
 
-    return '<section class="panel" id="activity">' + head + nightBox + nightForm + stats + byHour + timeline + chans +
-      '<p class="muted small">Only time with a video playing counts. A pause or break of more than 2 minutes starts a new session. Activity is recorded only on this device and kept for 60 days.</p>' +
+    return '<section class="panel" id="activity">' + head + nightBox + quietBox + nightForm + stats + byHour + timeline + chans +
+      '<p class="muted small">Only time with a video playing counts. A pause or break of more than 2 minutes starts a new session. Taps count anywhere on the page; inside the YouTube player only the first tap and pausing or resuming can be seen. Activity is recorded only on this device and kept for 60 days.</p>' +
       '<div class="btn-row"><button class="btn btn-small" data-action="clear-activity">Clear activity history</button></div>' +
     '</section>';
   }
@@ -787,7 +880,7 @@
 
   function destroyPlayer() {
     clearTimeout(session.unknownTimer); session.unknownTimer = null;
-    session.playing = false;
+    session.playing = false; session.lastState = null;
     if (player) {
       try { player.destroy(); } catch (e) { /* ignore */ }
       player = null;
@@ -874,6 +967,9 @@
     var states = window.YT.PlayerState;
     if (!player) return;
     session.playing = e.data === states.PLAYING;
+    // Pausing, or resuming after a pause, is the child using the player.
+    if (e.data === states.PAUSED || (e.data === states.PLAYING && session.lastState === states.PAUSED)) noteInteraction();
+    session.lastState = e.data;
     if (e.data === states.PLAYING) {
       var data = player.getVideoData ? player.getVideoData() : null;
       var id = data && data.video_id;
@@ -1988,8 +2084,8 @@
       updateSeekRow();
       return;
     }
-    if (e.target.dataset.role === 'night-start' || e.target.dataset.role === 'night-end') {
-      state.settings[e.target.dataset.role === 'night-start' ? 'nightStart' : 'nightEnd'] = parseInt(e.target.value, 10) || 0;
+    if (e.target.dataset.role === 'night-start' || e.target.dataset.role === 'night-end' || e.target.dataset.role === 'quiet-minutes') {
+      state.settings[{ 'night-start': 'nightStart', 'night-end': 'nightEnd', 'quiet-minutes': 'quietMinutes' }[e.target.dataset.role]] = parseInt(e.target.value, 10) || 0;
       persist();
       var y = window.scrollY; render(); window.scrollTo(0, y);
       return;
@@ -2006,6 +2102,15 @@
     if (['videos', 'channel', 'channels'].indexOf(name) === -1) { session.filter = ''; session.searchOpen = false; }
     render();
     window.scrollTo(0, 0);
+  });
+
+  document.addEventListener('pointerdown', noteInteraction, true);
+  document.addEventListener('keydown', noteInteraction, true);
+  // A tap into the (cross-origin) player iframe shows up only as focus moving to it.
+  window.addEventListener('blur', function () {
+    setTimeout(function () {
+      if (document.activeElement && document.activeElement.tagName === 'IFRAME') noteInteraction();
+    }, 0);
   });
 
   // Always start in kid mode: a reload never lands in an unlocked parent view.

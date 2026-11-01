@@ -48,6 +48,15 @@ used on this device, for the last 7, 14 or 30 days:
   the top lists every such session with its exact start and end time, how
   much was watched and which channels, e.g. *Yesterday 2:17 AM – 2:56 AM,
   35 min watched*. Otherwise it says there was no night-time use.
+* **No taps for a long time**: the app also notes when the child taps or
+  presses a key. If a video kept playing for 20+ minutes (adjustable: 10 to
+  60) with nobody touching the screen, an amber box lists each such stretch
+  with its start and end time, as a hint that the child fell asleep or walked
+  away. Those stretches are amber in the day-by-day timeline, and each
+  session shows its tap count. Taps anywhere on the page count; inside the
+  YouTube player the page can only see the first tap (focus moving into the
+  player) and pausing or resuming, so a child who only scrubs inside
+  YouTube's own controls may look idle.
 * **Totals**: time watched today, the daily average, the total for the
   period and the busiest hour of the day.
 * **Time of day**: a bar per hour (12 AM to 12 AM) with the minutes watched
@@ -291,7 +300,7 @@ manifest.webmanifest  "Add to Home Screen" support
 ## Data model
 
 ```js
-settings = { parentPinHash, childName, apiKey, blockYouTubeLinks, useYouTubeSignIn, autoplayNext, watchMinutes, nightStart, nightEnd }
+settings = { parentPinHash, childName, apiKey, blockYouTubeLinks, useYouTubeSignIn, autoplayNext, watchMinutes, nightStart, nightEnd, quietMinutes }
 watch    = { until }   // ms timestamp when the current unlock expires
 sources  = [{ id, type: "video" | "channel", youtubeId, title, channelName, addedAt,
               // channels only:
@@ -299,7 +308,8 @@ sources  = [{ id, type: "video" | "channel", youtubeId, title, channelName, adde
 videos   = [{ youtubeId, title, channelName, thumbnail, sourceId, publishedAt, addedAt, hidden }]
 // separate entry "kidtube.activity", seconds per 15-minute slot (0-95) per local day
 activity = { days: { "YYYY-MM-DD": { w: { slot: watching }, o: { slot: open }, ch: { channelName: watching },
-                                    s: [[startSec, endSec, watching, { channelName: watching }]] } } }
+                                    s: [[startSec, endSec, watching, { channelName: watching }]],
+                                    t: { epochMinute: taps } } } }
 ```
 
 ## Non-goals (for now)

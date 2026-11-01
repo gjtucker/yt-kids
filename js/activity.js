@@ -14,7 +14,8 @@
   var SESSION_GAP_S = 120;
 
   // days[YYYY-MM-DD] = { w: {slot: seconds watching}, o: {slot: seconds open}, ch: {channel: seconds watching},
-  //                      s: [[startEpochSec, endEpochSec, secondsWatching, {channel: seconds}], ...] }
+  //                      s: [[startEpochSec, endEpochSec, secondsWatching, {channel: seconds}], ...],
+  //                      t: {epochMinute: taps} }
   var data = load();
   var dirty = false, lastSave = 0;
 
@@ -75,6 +76,18 @@
     if (Date.now() - lastSave > SAVE_EVERY_MS) save();
   }
 
+  /* A tap or key press on the kid side, counted per minute. */
+  function tap() {
+    var now = new Date();
+    var key = dayKey(now);
+    var day = data.days[key] || (data.days[key] = { w: {}, o: {}, ch: {} });
+    var t = day.t || (day.t = {});
+    var m = Math.floor(now.getTime() / 60000);
+    t[m] = (t[m] || 0) + 1;
+    dirty = true;
+    if (Date.now() - lastSave > SAVE_EVERY_MS) save();
+  }
+
   function round1(n) { return Math.round(n * 10) / 10; }
 
   /* The last `count` days, newest first, each with per-slot arrays. */
@@ -92,14 +105,14 @@
       var sessions = (day.s || []).map(function (x) {
         return { start: new Date(x[0] * 1000), end: new Date(x[1] * 1000), watch: x[2], ch: x[3] || {} };
       });
-      out.push({ key: key, date: new Date(d.getFullYear(), d.getMonth(), d.getDate()), w: w, o: o, ch: day.ch || {}, watch: watch, open: open, sessions: sessions });
+      out.push({ key: key, date: new Date(d.getFullYear(), d.getMonth(), d.getDate()), w: w, o: o, ch: day.ch || {}, watch: watch, open: open, sessions: sessions, taps: day.t || {} });
       d.setDate(d.getDate() - 1);
     }
     return out;
   }
 
   function hasAny() {
-    return Object.keys(data.days).length > 0;
+    return Object.keys(data.days).some(function (k) { return (data.days[k].s || []).length > 0; });
   }
 
   function clear() {
@@ -115,6 +128,7 @@
     SLOT_MIN: SLOT_MIN,
     SLOTS: SLOTS,
     add: add,
+    tap: tap,
     save: save,
     recentDays: recentDays,
     hasAny: hasAny,

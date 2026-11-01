@@ -10,7 +10,7 @@
   function defaults() {
     return {
       version: 1,
-      settings: { parentPinHash: null, childName: 'My Videos', apiKey: '', blockYouTubeLinks: true, useYouTubeSignIn: false, autoplayNext: false, watchMinutes: 15, nightStart: 21, nightEnd: 6 },
+      settings: { parentPinHash: null, childName: 'My Videos', apiKey: '', blockYouTubeLinks: true, useYouTubeSignIn: false, autoplayNext: false, watchMinutes: 15, nightStart: 21, nightEnd: 6, quietMinutes: 20 },
       watch: { until: 0 },
       explore: { suggestions: [], scannedAt: null, dismissed: {} },
       channelWatched: {},

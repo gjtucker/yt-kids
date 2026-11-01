@@ -22,6 +22,9 @@
   --radius: 12px;
   --night: #e6e4f5;
   --warn-bg: #fdecea;
+  --quiet: #e8a100;
+  --quiet-bg: #fff4dc;
+  --quiet-text: #8a5a00;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -44,6 +47,9 @@
     --shadow: none;
     --night: #24213d;
     --warn-bg: #3a1d1d;
+    --quiet: #f0b400;
+    --quiet-bg: #33290f;
+    --quiet-text: #f0c24d;
   }
 }
 
@@ -424,3 +430,9 @@ select { width: auto; }
 .act-day-details > .act-sessions { margin: 2px 0 10px; padding: 4px 12px; background: var(--surface-2); border-radius: 8px; }
 .act-moon { color: var(--danger); font-size: 0.6rem; vertical-align: 1px; }
 @media (max-width: 600px) { .act-s-meta { flex-basis: 100%; } }
+.act-strip i.w.q { background: var(--quiet); }
+.act-key-q { background: var(--quiet); }
+.act-alert-quiet { background: var(--quiet-bg); }
+.act-alert-quiet .act-alert-title { color: var(--quiet-text); }
+.act-alert-quiet .act-session:not(.night) .act-s-time { color: var(--quiet-text); }
+.badge-quiet { background: var(--quiet); color: #1a1200; }

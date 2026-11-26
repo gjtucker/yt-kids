@@ -1336,7 +1336,10 @@
           '<label class="check"><input type="checkbox" name="autoplayNext"' + (state.settings.autoplayNext ? ' checked' : '') + '> Play the next video automatically when one ends <span class="muted small">(off: each video stops at the end, so nothing keeps playing if your child falls asleep)</span></label>' +
           '<label class="check"><input type="checkbox" name="useYouTubeSignIn"' + (state.settings.useYouTubeSignIn ? ' checked' : '') + '> Use my YouTube sign-in <span class="muted small">(with YouTube Premium, videos play without ads; sign in to youtube.com in this browser first)</span></label>' +
           (state.settings.useYouTubeSignIn && state.settings.signInFailedAt
-            ? '<p class="status status-warn">On ' + esc(new Date(state.settings.signInFailedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })) + ' YouTube wouldn’t load the player with your sign-in on this device (some browsers get sent to m.youtube.com, which can’t play inside other sites), so videos play without it, with ads. <a href="#" data-action="retry-signin">Try again</a></p>'
+            ? '<div class="status status-warn">On ' + esc(new Date(state.settings.signInFailedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })) + ' YouTube wouldn’t load the player with your sign-in on this device, so videos play without it, with ads. ' +
+                'This most likely means YouTube is set to its mobile site in this browser, and the mobile site can’t play inside other sites. To fix it:' +
+                '<ol class="small"><li><a href="https://www.youtube.com/?app=desktop&amp;persist_app=1" target="_blank" rel="noopener">Switch YouTube to its desktop site in this browser</a> (opens YouTube in a new tab; you stay signed in).</li>' +
+                '<li>Come back to this tab and tap <a href="#" data-action="retry-signin">Try again</a>, then play a video.</li></ol></div>'
             : '') +
           '<button class="btn" type="submit">Save settings</button>' +
         '</form>' +

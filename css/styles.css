@@ -436,3 +436,5 @@ select { width: auto; }
 .act-alert-quiet .act-alert-title { color: var(--quiet-text); }
 .act-alert-quiet .act-session:not(.night) .act-s-time { color: var(--quiet-text); }
 .badge-quiet { background: var(--quiet); color: #1a1200; }
+.status a { color: var(--link); text-decoration: underline; }
+.status ol { margin: 6px 0 0; padding-left: 20px; font-weight: 400; }

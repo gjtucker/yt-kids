@@ -141,7 +141,11 @@ to m.youtube.com, which refuses to play inside other sites ("m.youtube.com
 refused to connect"). If the signed-in player hasn't come up after 10
 seconds, the app switches that video to the cookie-free player and keeps
 using it on that device. Parent mode → Settings then says so, with a *Try
-again* link (unticking and re-ticking the box also tries again). With
+again* link (unticking and re-ticking the box also tries again). The usual
+cause is YouTube's own mobile/desktop preference in that browser (set when
+you signed in on m.youtube.com): the warning links to
+`https://www.youtube.com/?app=desktop&persist_app=1`, which switches it to
+the desktop site; then tap *Try again*. With
 Premium Lite, music videos and Shorts can still show ads.
 
 ### Supported links

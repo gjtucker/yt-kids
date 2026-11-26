@@ -862,6 +862,16 @@
   var playerApiPromise = null;
   var mountToken = 0;
   var UNKNOWN_GRACE_MS = 30000; // pre-roll/mid-roll ads report their own ids; give them time to pass
+  var SIGNIN_TIMEOUT_MS = 10000; // how long the signed-in player gets to come up before falling back
+
+  /* youtube.com honours the parent's YouTube sign-in (Premium = no ads); the
+     privacy-enhanced domain ignores it but sets no cookies. Some browsers
+     get sent from youtube.com to m.youtube.com, which refuses to load inside
+     other sites; once that has happened on this device (signInFailedAt),
+     the cookie-free player is used until a parent tries again. */
+  function playerHost() {
+    return state.settings.useYouTubeSignIn && !state.settings.signInFailedAt ? 'https://www.youtube.com' : 'https://www.youtube-nocookie.com';
+  }
 
   function loadPlayerApi() {
     if (window.YT && window.YT.Player) return Promise.resolve();
@@ -900,10 +910,7 @@
     }
     var iframe = document.createElement('iframe');
     iframe.id = 'yt-player';
-    // youtube.com honours the parent's YouTube sign-in (Premium = no ads);
-    // the privacy-enhanced domain ignores it but sets no cookies.
-    var host = state.settings.useYouTubeSignIn ? 'https://www.youtube.com' : 'https://www.youtube-nocookie.com';
-    iframe.src = host + '/embed/' + v.youtubeId + '?' + params.join('&');
+    iframe.src = playerHost() + '/embed/' + v.youtubeId + '?' + params.join('&');
     iframe.title = v.title;
     iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen');
     iframe.setAttribute('allowfullscreen', '');
@@ -916,13 +923,34 @@
 
   function mountPlayer(v) {
     var token = ++mountToken;
+    var startAt = session.startAt;
     session.currentVideoId = v.youtubeId;
     loadPlayerApi().then(function () {
       var host = root.querySelector('#yt-player');
       if (token !== mountToken || !host) return; // navigated away
+      var signedIn = playerHost() === 'https://www.youtube.com';
       var iframe = buildPlayerIframe(v, true);
       host.replaceWith(iframe);
-      player = new window.YT.Player(iframe, { events: { onStateChange: onPlayerStateChange, onError: onPlayerError } });
+      var ready = false;
+      var mine = player = new window.YT.Player(iframe, { events: {
+        onReady: function () { ready = true; },
+        onStateChange: function (e) { ready = true; onPlayerStateChange(e); },
+        onError: onPlayerError
+      } });
+      if (!signedIn) return;
+      // A player that never reports back is showing the browser's
+      // "refused to connect" page: remember that and use the cookie-free one.
+      setTimeout(function () {
+        if (ready || token !== mountToken || player !== mine) return;
+        state.settings.signInFailedAt = Date.now();
+        persist();
+        destroyPlayer();
+        var box = root.querySelector('.player');
+        if (!box) return;
+        box.innerHTML = '<div id="yt-player"></div>';
+        session.startAt = startAt;
+        mountPlayer(v);
+      }, (window.KIDTUBE_TEST && window.KIDTUBE_TEST.signInTimeoutMs) || SIGNIN_TIMEOUT_MS);
     }).catch(function () {
       // No API (offline, blocked): plain embed without queue/end-screen handling.
       var host = root.querySelector('#yt-player');
@@ -1307,6 +1335,9 @@
           '<label class="check"><input type="checkbox" name="blockYouTubeLinks"' + (state.settings.blockYouTubeLinks !== false ? ' checked' : '') + '> Block links to youtube.com inside the player <span class="muted small">(recommended; turn off if videos show as unavailable)</span></label>' +
           '<label class="check"><input type="checkbox" name="autoplayNext"' + (state.settings.autoplayNext ? ' checked' : '') + '> Play the next video automatically when one ends <span class="muted small">(off: each video stops at the end, so nothing keeps playing if your child falls asleep)</span></label>' +
           '<label class="check"><input type="checkbox" name="useYouTubeSignIn"' + (state.settings.useYouTubeSignIn ? ' checked' : '') + '> Use my YouTube sign-in <span class="muted small">(with YouTube Premium, videos play without ads; sign in to youtube.com in this browser first)</span></label>' +
+          (state.settings.useYouTubeSignIn && state.settings.signInFailedAt
+            ? '<p class="status status-warn">On ' + esc(new Date(state.settings.signInFailedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })) + ' YouTube wouldn’t load the player with your sign-in on this device (some browsers get sent to m.youtube.com, which can’t play inside other sites), so videos play without it, with ads. <a href="#" data-action="retry-signin">Try again</a></p>'
+            : '') +
           '<button class="btn" type="submit">Save settings</button>' +
         '</form>' +
         statusHtml('settings') +
@@ -1586,7 +1617,7 @@
       var lists = [].concat((state.explore.suggestions || []).map(function (c) { return c.samples || []; }), ((session.search && session.search.results) || []).map(function (r) { return r.samples || [r]; }));
       lists.forEach(function (l) { l.forEach(function (x) { if (x.youtubeId === id) title = x.title; }); });
     }
-    var src = (state.settings.useYouTubeSignIn ? 'https://www.youtube.com' : 'https://www.youtube-nocookie.com') + '/embed/' + id + '?rel=0&playsinline=1&autoplay=1';
+    var src = playerHost() + '/embed/' + id + '?rel=0&playsinline=1&autoplay=1';
     return '<div class="preview-overlay" data-action="close-preview">' +
       '<div class="preview-box" data-stop="1">' +
         '<div class="preview-head"><span class="preview-title">' + esc(title) + '</span><button class="icon-btn" data-action="close-preview" aria-label="Close">✕</button></div>' +
@@ -1912,6 +1943,11 @@
         break;
       case 'start-watch': startWatchTime(); setStatus('ok', 'Unlocked for ' + state.settings.watchMinutes + ' minutes.', 'watch'); break;
       case 'end-watch': endWatchTime(); setStatus('ok', 'Locked.', 'watch'); break;
+      case 'retry-signin':
+        delete state.settings.signInFailedAt;
+        persist();
+        setStatus('ok', 'The next video will try your YouTube sign-in again.', 'settings');
+        break;
       case 'activity-range': {
         session.activityDays = parseInt(el.dataset.days, 10) || 7;
         var y = window.scrollY; render(); window.scrollTo(0, y);
@@ -2048,6 +2084,8 @@
         state.settings.childName = form.childName.value.trim() || 'My Videos';
         state.settings.apiKey = form.apiKey.value.trim();
         state.settings.blockYouTubeLinks = form.blockYouTubeLinks.checked;
+        // Ticking the box again is a fresh try after a failed one.
+        if (form.useYouTubeSignIn.checked && !state.settings.useYouTubeSignIn) delete state.settings.signInFailedAt;
         state.settings.useYouTubeSignIn = form.useYouTubeSignIn.checked;
         state.settings.autoplayNext = form.autoplayNext.checked;
         persist();

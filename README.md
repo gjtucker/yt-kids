@@ -136,6 +136,14 @@ then loads from youtube.com instead of the privacy-enhanced domain, so your
 Premium status applies and videos play without ads. Leave it off to keep the
 cookie-free embed.
 
+Some browsers don't allow this: once signed in, youtube.com sends the player
+to m.youtube.com, which refuses to play inside other sites ("m.youtube.com
+refused to connect"). If the signed-in player hasn't come up after 10
+seconds, the app switches that video to the cookie-free player and keeps
+using it on that device. Parent mode → Settings then says so, with a *Try
+again* link (unticking and re-ticking the box also tries again). With
+Premium Lite, music videos and Shorts can still show ads.
+
 ### Supported links
 
 * Videos: `youtube.com/watch?v=…`, `youtu.be/…`, `youtube.com/shorts/…`,

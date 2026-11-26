@@ -136,19 +136,18 @@ then loads from youtube.com instead of the privacy-enhanced domain, so your
 Premium status applies and videos play without ads. Leave it off to keep the
 cookie-free embed.
 
-Some browsers don't allow this: once signed in, youtube.com sends the player
-to m.youtube.com, which refuses to play inside other sites ("m.youtube.com
-refused to connect"). If the signed-in player hasn't come up after 10
-seconds, the app switches that video to the cookie-free player and keeps
-using it on that device. Parent mode → Settings then says so, with a *Try
-again* link (unticking and re-ticking the box also tries again). The usual
-cause is YouTube's own mobile/desktop preference in that browser (set when
-you signed in on m.youtube.com): the warning links to
-`https://www.youtube.com/?app=desktop&persist_app=1`, which switches it to
-the desktop site; then tap *Try again*. On some devices (seen on a Meta Portal
-Go) YouTube's signed-in player fails even when opened directly in the
-browser, outside KidTube; there the sign-in can't be used, so leave the
-setting off on that device. With
+If the player doesn't come up with your sign-in, the app notices after 10
+seconds, switches that video to the cookie-free player and keeps using it on
+that device. Without a sign-in, youtube.com's player loads fine in every
+browser tested (desktop, tablet, older Android, with YouTube's mobile-site
+preference set), so a failure is YouTube redirecting a *signed-in* player
+to an m.youtube.com page (seen as "m.youtube.com refused to connect"),
+probably one it wants your account to see first. Parent mode → Settings
+then shows a warning with a link that opens the signed-in player in its own
+tab, where that page can be seen and dealt with, and a *Try again* link.
+(Typing the player's address into the address bar instead always shows
+"Error 153": YouTube's player refuses to start without knowing which site
+it is on.) Unticking and re-ticking the box also tries again. With
 Premium Lite, music videos and Shorts can still show ads.
 
 ### Supported links

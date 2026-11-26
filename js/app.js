@@ -1339,7 +1339,8 @@
             ? '<div class="status status-warn">On ' + esc(new Date(state.settings.signInFailedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })) + ' YouTube wouldn’t load the player with your sign-in on this device, so videos play without it, with ads. ' +
                 'This most likely means YouTube is set to its mobile site in this browser, and the mobile site can’t play inside other sites. To fix it:' +
                 '<ol class="small"><li><a href="https://www.youtube.com/?app=desktop&amp;persist_app=1" target="_blank" rel="noopener">Switch YouTube to its desktop site in this browser</a> (opens YouTube in a new tab; you stay signed in).</li>' +
-                '<li>Come back to this tab and tap <a href="#" data-action="retry-signin">Try again</a>, then play a video.</li></ol></div>'
+                '<li>Come back to this tab and tap <a href="#" data-action="retry-signin">Try again</a>, then play a video.</li></ol>' +
+                '<div class="small">If it still fails, YouTube’s own player doesn’t work with your sign-in in this browser, and KidTube can’t change that. Untick “Use my YouTube sign-in” on this device so videos start straight away.</div></div>'
             : '') +
           '<button class="btn" type="submit">Save settings</button>' +
         '</form>' +

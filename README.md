@@ -145,7 +145,10 @@ again* link (unticking and re-ticking the box also tries again). The usual
 cause is YouTube's own mobile/desktop preference in that browser (set when
 you signed in on m.youtube.com): the warning links to
 `https://www.youtube.com/?app=desktop&persist_app=1`, which switches it to
-the desktop site; then tap *Try again*. With
+the desktop site; then tap *Try again*. On some devices (seen on a Meta Portal
+Go) YouTube's signed-in player fails even when opened directly in the
+browser, outside KidTube; there the sign-in can't be used, so leave the
+setting off on that device. With
 Premium Lite, music videos and Shorts can still show ads.
 
 ### Supported links

@@ -136,18 +136,29 @@ then loads from youtube.com instead of the privacy-enhanced domain, so your
 Premium status applies and videos play without ads. Leave it off to keep the
 cookie-free embed.
 
-If the player doesn't come up with your sign-in, the app notices after 10
-seconds, switches that video to the cookie-free player and keeps using it on
-that device. Without a sign-in, youtube.com's player loads fine in every
-browser tested (desktop, tablet, older Android, with YouTube's mobile-site
-preference set), so a failure is YouTube redirecting a *signed-in* player
-to an m.youtube.com page (seen as "m.youtube.com refused to connect"),
-probably one it wants your account to see first. Parent mode → Settings
-then shows a warning with a link that opens the signed-in player in its own
-tab, where that page can be seen and dealt with, and a *Try again* link.
+If the player doesn't come up with your sign-in, the app notices and plays
+that video with the cookie-free player instead: when the player's page has
+loaded but the player hasn't answered within 4 seconds (what the browser's
+"m.youtube.com refused to connect" page looks like), or when nothing has
+loaded after 10 seconds. One failure only switches that visit; after two in
+a row the device keeps using the cookie-free player, and a success resets
+the count. Without a sign-in, youtube.com's player loads fine in every
+browser tested, so a failure is YouTube redirecting a *signed-in* player to
+an m.youtube.com page, probably one it wants your account to see first.
+Parent mode → Settings then shows a warning with a link that opens the
+signed-in player in its own tab, where that page can be seen and dealt with.
 (Typing the player's address into the address bar instead always shows
 "Error 153": YouTube's player refuses to start without knowing which site
-it is on.) Unticking and re-ticking the box also tries again. With
+it is on.)
+
+**Check the YouTube player** (Parent mode → Settings) loads the signed-in
+player on the spot and says whether it works on this device; a working
+test turns the sign-in back on. Below it, a report lists the device's
+browser details and its last 15 player loads (time, signed-in or
+cookie-free, worked or how it failed), with **Copy report** and **Email
+report** buttons for asking for help. The load log is kept in its own
+`localStorage` entry and never included in backups or share links.
+Unticking and re-ticking the sign-in box also tries again. With
 Premium Lite, music videos and Shorts can still show ads.
 
 ### Supported links

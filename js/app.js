@@ -862,15 +862,81 @@
   var playerApiPromise = null;
   var mountToken = 0;
   var UNKNOWN_GRACE_MS = 30000; // pre-roll/mid-roll ads report their own ids; give them time to pass
-  var SIGNIN_TIMEOUT_MS = 10000; // how long the signed-in player gets to come up before falling back
+  var SIGNIN_TIMEOUT_MS = 10000; // nothing loaded at all after this long: give up on the signed-in player
+  var SIGNIN_SILENT_MS = 4000; // its page loaded but the player hasn't answered after this long: give up
+  var SIGNIN_FAILS_TO_STOP = 2; // failures in a row before this device stops trying the sign-in
+  var PLAYER_LOG_KEY = 'kidtube.playerlog';
+  var PLAYER_LOG_MAX = 15;
+
+  function testOpt(name, fallback) {
+    return (window.KIDTUBE_TEST && window.KIDTUBE_TEST[name]) || fallback;
+  }
 
   /* youtube.com honours the parent's YouTube sign-in (Premium = no ads); the
      privacy-enhanced domain ignores it but sets no cookies. Some browsers
      get sent from youtube.com to m.youtube.com, which refuses to load inside
-     other sites; once that has happened on this device (signInFailedAt),
-     the cookie-free player is used until a parent tries again. */
-  function playerHost() {
-    return state.settings.useYouTubeSignIn && !state.settings.signInFailedAt ? 'https://www.youtube.com' : 'https://www.youtube-nocookie.com';
+     other sites. A failure switches this visit to the cookie-free player;
+     after SIGNIN_FAILS_TO_STOP in a row (signInFailedAt) the device keeps
+     using it until a parent tests the player again in Settings. */
+  function signInActive() {
+    return !!(state.settings.useYouTubeSignIn && !state.settings.signInFailedAt && !session.signInOff);
+  }
+
+  function embedBase(signedIn) {
+    // Tests can point the signed-in player at a page that refuses to be framed.
+    return signedIn ? testOpt('signedInEmbedBase', 'https://www.youtube.com/embed/') : 'https://www.youtube-nocookie.com/embed/';
+  }
+
+  function noteSignInFailed() {
+    session.signInOff = true;
+    state.settings.signInFailures = (state.settings.signInFailures || 0) + 1;
+    if (state.settings.signInFailures >= SIGNIN_FAILS_TO_STOP) state.settings.signInFailedAt = Date.now();
+    persist();
+  }
+
+  function noteSignInWorked() {
+    session.signInOff = false;
+    if (!state.settings.signInFailures && !state.settings.signInFailedAt) return;
+    delete state.settings.signInFailures;
+    delete state.settings.signInFailedAt;
+    persist();
+  }
+
+  /* A short log of recent player loads on this device, for the player check
+     in Settings. Kept in its own entry, never in backups. */
+  function readPlayerLog() {
+    try { var l = JSON.parse(localStorage.getItem(PLAYER_LOG_KEY) || '[]'); return Array.isArray(l) ? l : []; } catch (e) { return []; }
+  }
+
+  function logPlayer(entry) {
+    var l = readPlayerLog();
+    entry.at = Date.now();
+    l.unshift(entry);
+    try { localStorage.setItem(PLAYER_LOG_KEY, JSON.stringify(l.slice(0, PLAYER_LOG_MAX))); } catch (e) { /* ignore */ }
+  }
+
+  /* Watch a new player iframe and call done(outcome, info) once:
+     'ok' when the player answers (call .ready()), 'silent' when its page
+     loaded but the player never answered (the browser's "refused to
+     connect" page looks like this), 'no-load' when nothing loaded. */
+  function watchPlayerLoad(iframe, done) {
+    var t0 = Date.now(), loadMs = null, settled = false, timers = [];
+    function finish(outcome) {
+      if (settled) return;
+      settled = true;
+      timers.forEach(clearTimeout);
+      done(outcome, { loadMs: loadMs, ms: Date.now() - t0 });
+    }
+    iframe.addEventListener('load', function () {
+      if (loadMs !== null) return;
+      loadMs = Date.now() - t0;
+      timers.push(setTimeout(function () { finish('silent'); }, testOpt('signInSilentMs', SIGNIN_SILENT_MS)));
+    });
+    timers.push(setTimeout(function () { finish(loadMs === null ? 'no-load' : 'silent'); }, testOpt('signInTimeoutMs', SIGNIN_TIMEOUT_MS)));
+    return {
+      ready: function () { finish('ok'); },
+      cancel: function () { settled = true; timers.forEach(clearTimeout); }
+    };
   }
 
   function loadPlayerApi() {
@@ -900,7 +966,7 @@
   /* Build the player iframe ourselves so we control its attributes. Without
      allow-popups / allow-top-navigation in `sandbox`, the links inside the
      player (title, logo, "Watch on YouTube") cannot open youtube.com. */
-  function buildPlayerIframe(v, withApi) {
+  function buildPlayerIframe(v, withApi, signedIn) {
     var params = ['rel=0', 'playsinline=1', 'iv_load_policy=3'];
     if (session.startAt > 0 && session.currentVideoId === v.youtubeId) params.push('start=' + Math.floor(session.startAt));
     session.startAt = 0;
@@ -910,7 +976,7 @@
     }
     var iframe = document.createElement('iframe');
     iframe.id = 'yt-player';
-    iframe.src = playerHost() + '/embed/' + v.youtubeId + '?' + params.join('&');
+    iframe.src = embedBase(signedIn) + v.youtubeId + '?' + params.join('&');
     iframe.title = v.title;
     iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen');
     iframe.setAttribute('allowfullscreen', '');
@@ -928,33 +994,34 @@
     loadPlayerApi().then(function () {
       var host = root.querySelector('#yt-player');
       if (token !== mountToken || !host) return; // navigated away
-      var signedIn = playerHost() === 'https://www.youtube.com';
-      var iframe = buildPlayerIframe(v, true);
-      host.replaceWith(iframe);
-      var ready = false;
-      var mine = player = new window.YT.Player(iframe, { events: {
-        onReady: function () { ready = true; },
-        onStateChange: function (e) { ready = true; onPlayerStateChange(e); },
-        onError: onPlayerError
-      } });
-      if (!signedIn) return;
-      // A player that never reports back is showing the browser's
-      // "refused to connect" page: remember that and use the cookie-free one.
-      setTimeout(function () {
-        if (ready || token !== mountToken || player !== mine) return;
-        state.settings.signInFailedAt = Date.now();
-        persist();
+      var signedIn = signInActive();
+      var iframe = buildPlayerIframe(v, true, signedIn);
+      var mine = null;
+      var watch = watchPlayerLoad(iframe, function (outcome, info) {
+        if (token !== mountToken || player !== mine) return; // navigated away meanwhile
+        logPlayer({ where: 'video', signedIn: signedIn, outcome: outcome, loadMs: info.loadMs, ms: info.ms });
+        if (outcome === 'ok') { if (signedIn) noteSignInWorked(); return; }
+        if (!signedIn) return;
+        // The signed-in player is stuck (usually "refused to connect"):
+        // play this video with the cookie-free one instead.
+        noteSignInFailed();
         destroyPlayer();
         var box = root.querySelector('.player');
         if (!box) return;
         box.innerHTML = '<div id="yt-player"></div>';
         session.startAt = startAt;
         mountPlayer(v);
-      }, (window.KIDTUBE_TEST && window.KIDTUBE_TEST.signInTimeoutMs) || SIGNIN_TIMEOUT_MS);
+      });
+      host.replaceWith(iframe);
+      mine = player = new window.YT.Player(iframe, { events: {
+        onReady: function () { watch.ready(); },
+        onStateChange: function (e) { watch.ready(); onPlayerStateChange(e); },
+        onError: onPlayerError
+      } });
     }).catch(function () {
       // No API (offline, blocked): plain embed without queue/end-screen handling.
       var host = root.querySelector('#yt-player');
-      if (token === mountToken && host) host.replaceWith(buildPlayerIframe(v, false));
+      if (token === mountToken && host) host.replaceWith(buildPlayerIframe(v, false, signInActive()));
     });
   }
 
@@ -1336,11 +1403,11 @@
           '<label class="check"><input type="checkbox" name="autoplayNext"' + (state.settings.autoplayNext ? ' checked' : '') + '> Play the next video automatically when one ends <span class="muted small">(off: each video stops at the end, so nothing keeps playing if your child falls asleep)</span></label>' +
           '<label class="check"><input type="checkbox" name="useYouTubeSignIn"' + (state.settings.useYouTubeSignIn ? ' checked' : '') + '> Use my YouTube sign-in <span class="muted small">(with YouTube Premium, videos play without ads; sign in to youtube.com in this browser first)</span></label>' +
           (state.settings.useYouTubeSignIn && state.settings.signInFailedAt
-            ? '<div class="status status-warn">On ' + esc(new Date(state.settings.signInFailedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })) + ' YouTube wouldn’t load the player with your sign-in on this device, so videos play without it, with ads. ' +
+            ? '<div class="status status-warn" data-role="signin-warning">Since ' + esc(new Date(state.settings.signInFailedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })) + ' YouTube hasn’t loaded the player with your sign-in on this device, so videos play without it, with ads. ' +
                 'YouTube is probably trying to show your account a page first (for example to choose an account or confirm it’s you), and that page can’t appear inside KidTube. To get past it:' +
-                '<ol class="small"><li><a href="https://www.youtube.com/embed/jNQXAC9IVRw?rel=0&amp;playsinline=1" target="_blank" rel="noopener" referrerpolicy="strict-origin-when-cross-origin">Open the signed-in player in a new tab</a>. If YouTube shows anything other than the video, go through it, and note the address it ends up on.</li>' +
-                '<li>Come back to this tab, tap <a href="#" data-action="retry-signin">Try again</a>, then play a video.</li></ol>' +
-                '<div class="small">Still failing? <a href="https://www.youtube.com/?app=desktop&amp;persist_app=1" target="_blank" rel="noopener">Switch YouTube to its desktop site</a> and tap Try again once more. If nothing helps, untick “Use my YouTube sign-in” on this device so videos start straight away.</div></div>'
+                '<ol class="small"><li><a href="https://www.youtube.com/embed/jNQXAC9IVRw?rel=0&amp;playsinline=1" target="_blank" rel="noopener" referrerpolicy="strict-origin-when-cross-origin">Open the signed-in player in a new tab</a>. If YouTube shows anything other than the video, go through it.</li>' +
+                '<li>Come back to this tab and tap <b>Test the signed-in player</b> under “Check the YouTube player” below. If it works, the sign-in is used again.</li></ol>' +
+                '<div class="small">Still failing? <a href="https://www.youtube.com/?app=desktop&amp;persist_app=1" target="_blank" rel="noopener">Switch YouTube to its desktop site</a> and test again. If nothing helps, untick “Use my YouTube sign-in” on this device so videos start straight away.</div></div>'
             : '') +
           '<button class="btn" type="submit">Save settings</button>' +
         '</form>' +
@@ -1352,6 +1419,7 @@
             '<button class="btn" type="submit">Update PIN</button>' +
           '</form>' +
         '</details>' +
+        playerCheckHtml() +
       '</section>' +
 
       '<section class="panel">' +
@@ -1612,6 +1680,126 @@
     }).join('') + '</div>';
   }
 
+  /* ---------------- player check ----------------
+     Parent mode → Settings: load the signed-in player on the spot, say in
+     plain words what happened, and build a report a parent can copy or
+     email when asking for help. */
+
+  var PLAYER_TEST_TEXT = {
+    running: 'Loading the signed-in player…',
+    ok: 'Worked: the player with your YouTube sign-in answered after {ms}.',
+    silent: 'YouTube’s page loaded after {load}, but the player never answered. This is what “refused to connect” looks like: YouTube sent the player to a page that can’t be shown inside KidTube. The box above shows what YouTube sent.',
+    'no-load': 'Nothing loaded within {ms}. Check the internet connection and test again.',
+    'no-api': 'YouTube’s player script didn’t load (offline, or blocked by the browser or network).'
+  };
+
+  function secs(ms) { return ms == null ? '?' : (ms / 1000).toFixed(1) + ' s'; }
+
+  function playerTestText() {
+    var t = session.playerTest;
+    if (!t) return '';
+    var text = PLAYER_TEST_TEXT[t.outcome].replace('{ms}', secs(t.ms)).replace('{load}', secs(t.loadMs));
+    if (t.outcome === 'ok' && !state.settings.useYouTubeSignIn) text += ' Tick “Use my YouTube sign-in” above and save to use it for videos.';
+    return text;
+  }
+
+  function playerReport() {
+    var nav = navigator, ua = nav.userAgentData;
+    var lines = [
+      'KidTube player report, ' + new Date().toString(),
+      'Page: ' + location.origin + location.pathname,
+      'Browser: ' + nav.userAgent,
+      'Client hints: ' + (ua ? 'mobile=' + ua.mobile + ', platform=' + ua.platform + ', brands=' + (ua.brands || []).map(function (b) { return b.brand + ' ' + b.version; }).join('; ') : 'not available'),
+      'Screen: ' + screen.width + 'x' + screen.height + ' @' + (window.devicePixelRatio || 1) + 'x, window ' + window.innerWidth + 'x' + window.innerHeight +
+        (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches ? ', home-screen app' : '') + ', touch points ' + (nav.maxTouchPoints || 0),
+      'Cookies enabled: ' + nav.cookieEnabled,
+      'Sign-in setting: ' + (state.settings.useYouTubeSignIn ? 'on' : 'off') +
+        '; failures in a row: ' + (state.settings.signInFailures || 0) +
+        '; stopped trying since: ' + (state.settings.signInFailedAt ? new Date(state.settings.signInFailedAt).toString() : 'no') +
+        '; this visit: ' + (session.signInOff ? 'switched to cookie-free after a failure' : 'normal'),
+      'Block links in player: ' + (state.settings.blockYouTubeLinks !== false ? 'on' : 'off'),
+      'Last test: ' + (session.playerTest ? session.playerTest.outcome + ' (' + playerTestText() + ')' : 'not run on this visit'),
+      'Recent player loads (newest first):'
+    ];
+    var log = readPlayerLog();
+    if (!log.length) lines.push('  none yet');
+    log.forEach(function (e) {
+      lines.push('  ' + new Date(e.at).toLocaleString() + '  ' + (e.where === 'test' ? 'test ' : 'video') + '  ' +
+        (e.signedIn ? 'signed-in  ' : 'cookie-free') + '  ' +
+        (e.outcome === 'ok' ? 'ok, player answered after ' + secs(e.ms)
+          : e.outcome === 'silent' ? 'FAILED: page loaded after ' + secs(e.loadMs) + ', player never answered (gave up after ' + secs(e.ms) + ')'
+          : 'FAILED: nothing loaded in ' + secs(e.ms)));
+    });
+    return lines.join('\n');
+  }
+
+  function playerCheckHtml() {
+    var open = !!session.open['player-check'];
+    var report = open ? playerReport() : '';
+    return '<details class="subpanel" data-details="player-check"' + (open ? ' open' : '') + '><summary>Check the YouTube player</summary>' +
+      '<p class="muted small">Loads a video here with your YouTube sign-in and says whether it works on this device. The report below lists this device’s browser and recent player loads; copy or email it when asking for help.</p>' +
+      '<div class="btn-row"><button class="btn" data-action="player-test"' + (session.playerTest && session.playerTest.outcome === 'running' ? ' disabled' : '') + '>Test the signed-in player</button></div>' +
+      '<div class="player-test-box" data-role="player-test-box"' + (session.playerTest ? '' : ' hidden') + '></div>' +
+      '<p class="small" data-role="player-test-result">' + esc(playerTestText()) + '</p>' +
+      (open ? '<label>Report<textarea readonly rows="10" data-role="player-report">' + esc(report) + '</textarea></label>' +
+        '<div class="btn-row">' +
+          '<button class="btn" data-action="copy-player-report">Copy report</button>' +
+          '<a class="btn" data-role="player-report-mail" href="' + esc(reportMailto(report)) + '">Email report</a>' +
+          '<span class="muted small" data-role="player-report-status"></span>' +
+        '</div>' : '') +
+    '</details>';
+  }
+
+  function reportMailto(report) {
+    return 'mailto:?subject=' + encodeURIComponent('KidTube player report') + '&body=' + encodeURIComponent(report.slice(0, 1800));
+  }
+
+  /* Refresh the test result and report in place: a full render would
+     remove the test player. */
+  function refreshPlayerCheck() {
+    var warn = root.querySelector('[data-role="signin-warning"]');
+    if (warn && !state.settings.signInFailedAt) warn.hidden = true;
+    var res = root.querySelector('[data-role="player-test-result"]');
+    if (res) res.textContent = playerTestText();
+    var btn = root.querySelector('[data-action="player-test"]');
+    if (btn) btn.disabled = !!(session.playerTest && session.playerTest.outcome === 'running');
+    var ta = root.querySelector('[data-role="player-report"]');
+    if (ta) {
+      var report = playerReport();
+      ta.value = report;
+      var mail = root.querySelector('[data-role="player-report-mail"]');
+      if (mail) mail.href = reportMailto(report);
+    }
+  }
+
+  function runPlayerTest() {
+    var box = root.querySelector('[data-role="player-test-box"]');
+    if (!box) return;
+    var v = db().visible[0];
+    var video = { youtubeId: v ? v.youtubeId : 'jNQXAC9IVRw', title: 'Player test' };
+    var test = session.playerTest = { outcome: 'running' };
+    box.hidden = false;
+    box.innerHTML = '';
+    refreshPlayerCheck();
+    function settle(outcome, info) {
+      if (session.playerTest !== test) return;
+      test.outcome = outcome;
+      test.ms = info && info.ms; test.loadMs = info && info.loadMs;
+      if (outcome !== 'no-api') logPlayer({ where: 'test', signedIn: true, outcome: outcome, loadMs: test.loadMs, ms: test.ms });
+      // A working test turns the sign-in back on for this device.
+      if (outcome === 'ok' && state.settings.useYouTubeSignIn) noteSignInWorked();
+      refreshPlayerCheck();
+    }
+    loadPlayerApi().then(function () {
+      if (session.playerTest !== test || !box.isConnected) return;
+      var iframe = buildPlayerIframe(video, true, true);
+      iframe.removeAttribute('id');
+      var watch = watchPlayerLoad(iframe, settle);
+      box.appendChild(iframe);
+      new window.YT.Player(iframe, { events: { onReady: function () { watch.ready(); } } });
+    }, function () { settle('no-api'); });
+  }
+
   function previewOverlay() {
     var id = session.preview;
     if (!id) return '';
@@ -1621,7 +1809,7 @@
       var lists = [].concat((state.explore.suggestions || []).map(function (c) { return c.samples || []; }), ((session.search && session.search.results) || []).map(function (r) { return r.samples || [r]; }));
       lists.forEach(function (l) { l.forEach(function (x) { if (x.youtubeId === id) title = x.title; }); });
     }
-    var src = playerHost() + '/embed/' + id + '?rel=0&playsinline=1&autoplay=1';
+    var src = embedBase(signInActive()) + id + '?rel=0&playsinline=1&autoplay=1';
     return '<div class="preview-overlay" data-action="close-preview">' +
       '<div class="preview-box" data-stop="1">' +
         '<div class="preview-head"><span class="preview-title">' + esc(title) + '</span><button class="icon-btn" data-action="close-preview" aria-label="Close">✕</button></div>' +
@@ -1947,11 +2135,15 @@
         break;
       case 'start-watch': startWatchTime(); setStatus('ok', 'Unlocked for ' + state.settings.watchMinutes + ' minutes.', 'watch'); break;
       case 'end-watch': endWatchTime(); setStatus('ok', 'Locked.', 'watch'); break;
-      case 'retry-signin':
-        delete state.settings.signInFailedAt;
-        persist();
-        setStatus('ok', 'The next video will try your YouTube sign-in again.', 'settings');
+      case 'player-test': runPlayerTest(); break;
+      case 'copy-player-report': {
+        // Reported in place: a render would remove the test player.
+        var note = function (text) { var n = root.querySelector('[data-role="player-report-status"]'); if (n) n.textContent = text; };
+        var manual = 'Couldn’t copy. Select the report text and copy it by hand, or use Email report.';
+        if (navigator.clipboard) navigator.clipboard.writeText(playerReport()).then(function () { note('Copied.'); }, function () { note(manual); });
+        else note(manual);
         break;
+      }
       case 'activity-range': {
         session.activityDays = parseInt(el.dataset.days, 10) || 7;
         var y = window.scrollY; render(); window.scrollTo(0, y);
@@ -2014,6 +2206,7 @@
         if (confirm('Delete everything, including the PIN? This cannot be undone.')) {
           STORE.clear();
           ACTIVITY.clear();
+          try { localStorage.removeItem(PLAYER_LOG_KEY); } catch (e) { /* ignore */ }
           state = STORE.load();
           touch();
           session.unlocked = false; session.status = null;
@@ -2089,7 +2282,7 @@
         state.settings.apiKey = form.apiKey.value.trim();
         state.settings.blockYouTubeLinks = form.blockYouTubeLinks.checked;
         // Ticking the box again is a fresh try after a failed one.
-        if (form.useYouTubeSignIn.checked && !state.settings.useYouTubeSignIn) delete state.settings.signInFailedAt;
+        if (form.useYouTubeSignIn.checked && !state.settings.useYouTubeSignIn) { delete state.settings.signInFailedAt; delete state.settings.signInFailures; session.signInOff = false; }
         state.settings.useYouTubeSignIn = form.useYouTubeSignIn.checked;
         state.settings.autoplayNext = form.autoplayNext.checked;
         persist();
@@ -2113,8 +2306,8 @@
     if (!d) return;
     var wasOpen = !!session.open[d];
     session.open[d] = e.target.open;
-    // Opening a channel's list for the first time builds it.
-    if (e.target.open && !wasOpen && e.target.classList.contains('source-videos') && !e.target.querySelector('ul')) {
+    // Opening a channel's list, or the player check's report, builds it.
+    if (e.target.open && !wasOpen && ((e.target.classList.contains('source-videos') && !e.target.querySelector('ul')) || d === 'player-check')) {
       var y = window.scrollY; render(); window.scrollTo(0, y);
     }
   }, true);

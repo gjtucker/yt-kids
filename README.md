@@ -143,6 +143,18 @@ tab ended on `…?app=desktop`, so the signed-in player asks for `app=desktop`
 up front. If it still happens on a device, untick the box there. With
 Premium Lite, music videos and Shorts can still show ads.
 
+If videos load but still show ads while youtube.com itself shows your
+Premium, the browser is keeping your YouTube sign-in away from the player
+inside KidTube: it blocks *third-party cookies*, so the player runs signed
+out. In that browser's settings, allow third-party cookies for `youtube.com`
+and for the site KidTube is served from (for example `you.github.io`), then
+reopen KidTube. No `https://` is needed in the exceptions. This was the fix
+on a Meta Portal, whose browser blocks most third-party cookies by default.
+The Portal was confirmed ad-free with "Block links to youtube.com inside the
+player" turned *off*; with it on, the player is sandboxed, which is not yet
+tested there. If ads come back after turning it on, that is the first thing to
+switch off again.
+
 ### Supported links
 
 * Videos: `youtube.com/watch?v=…`, `youtu.be/…`, `youtube.com/shorts/…`,

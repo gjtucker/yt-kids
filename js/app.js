@@ -862,25 +862,15 @@
   var playerApiPromise = null;
   var mountToken = 0;
   var UNKNOWN_GRACE_MS = 30000; // pre-roll/mid-roll ads report their own ids; give them time to pass
-  var SIGNIN_TIMEOUT_MS = 10000; // nothing loaded at all after this long: give up on the signed-in player
-  var SIGNIN_SILENT_MS = 4000; // its page loaded but the player hasn't answered after this long: give up
-
-  function testOpt(name, fallback) {
-    return (window.KIDTUBE_TEST && window.KIDTUBE_TEST[name]) || fallback;
-  }
 
   /* youtube.com honours the parent's YouTube sign-in (Premium = no ads); the
-     privacy-enhanced domain ignores it but sets no cookies. Some devices get
-     sent from youtube.com to m.youtube.com, which refuses to load inside
-     other sites. When that happens the rest of this visit uses the
-     cookie-free player; the next visit tries the sign-in again. */
-  function signInActive() {
-    return !!(state.settings.useYouTubeSignIn && !session.signInOff);
-  }
-
-  function embedBase(signedIn) {
-    // Tests can point the signed-in player at a page that refuses to be framed.
-    return signedIn ? testOpt('signedInEmbedBase', 'https://www.youtube.com/embed/') : 'https://www.youtube-nocookie.com/embed/';
+     privacy-enhanced domain ignores it but sets no cookies. On a Meta Portal
+     (Android), YouTube sent the signed-in player to m.youtube.com and back to
+     …?app=desktop, and m.youtube.com refuses to load inside other sites, so
+     the signed-in player asks for app=desktop up front. */
+  function embedSrc(id, params) {
+    if (!state.settings.useYouTubeSignIn) return 'https://www.youtube-nocookie.com/embed/' + id + '?' + params.join('&');
+    return 'https://www.youtube.com/embed/' + id + '?' + ['app=desktop'].concat(params).join('&');
   }
 
   function loadPlayerApi() {
@@ -910,13 +900,8 @@
   /* Build the player iframe ourselves so we control its attributes. Without
      allow-popups / allow-top-navigation in `sandbox`, the links inside the
      player (title, logo, "Watch on YouTube") cannot open youtube.com. */
-  function buildPlayerIframe(v, withApi, signedIn) {
+  function buildPlayerIframe(v, withApi) {
     var params = ['rel=0', 'playsinline=1', 'iv_load_policy=3'];
-    // On Android (seen on a Meta Portal), YouTube sends a signed-in player
-    // to m.youtube.com and back with app=desktop; the m.youtube.com step
-    // refuses to load inside KidTube. Asking for the desktop player up
-    // front skips that detour.
-    if (signedIn) params.unshift('app=desktop');
     if (session.startAt > 0 && session.currentVideoId === v.youtubeId) params.push('start=' + Math.floor(session.startAt));
     session.startAt = 0;
     if (withApi) {
@@ -925,7 +910,7 @@
     }
     var iframe = document.createElement('iframe');
     iframe.id = 'yt-player';
-    iframe.src = embedBase(signedIn) + v.youtubeId + '?' + params.join('&');
+    iframe.src = embedSrc(v.youtubeId, params);
     iframe.title = v.title;
     iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen');
     iframe.setAttribute('allowfullscreen', '');
@@ -938,40 +923,17 @@
 
   function mountPlayer(v) {
     var token = ++mountToken;
-    var startAt = session.startAt;
     session.currentVideoId = v.youtubeId;
     loadPlayerApi().then(function () {
       var host = root.querySelector('#yt-player');
       if (token !== mountToken || !host) return; // navigated away
-      var signedIn = signInActive();
-      var iframe = buildPlayerIframe(v, true, signedIn);
-      var ready = false;
+      var iframe = buildPlayerIframe(v, true);
       host.replaceWith(iframe);
-      var mine = player = new window.YT.Player(iframe, { events: {
-        onReady: function () { ready = true; },
-        onStateChange: function (e) { ready = true; onPlayerStateChange(e); },
-        onError: onPlayerError
-      } });
-      if (!signedIn) return;
-      // A signed-in player that never answers is showing the browser's
-      // "refused to connect" page: play this video, and the rest of this
-      // visit, with the cookie-free player instead.
-      function giveUp() {
-        if (ready || token !== mountToken || player !== mine) return;
-        session.signInOff = true;
-        destroyPlayer();
-        var box = root.querySelector('.player');
-        if (!box) return;
-        box.innerHTML = '<div id="yt-player"></div>';
-        session.startAt = startAt;
-        mountPlayer(v);
-      }
-      iframe.addEventListener('load', function () { setTimeout(giveUp, testOpt('signInSilentMs', SIGNIN_SILENT_MS)); }, { once: true });
-      setTimeout(giveUp, testOpt('signInTimeoutMs', SIGNIN_TIMEOUT_MS));
+      player = new window.YT.Player(iframe, { events: { onStateChange: onPlayerStateChange, onError: onPlayerError } });
     }).catch(function () {
       // No API (offline, blocked): plain embed without queue/end-screen handling.
       var host = root.querySelector('#yt-player');
-      if (token === mountToken && host) host.replaceWith(buildPlayerIframe(v, false, signInActive()));
+      if (token === mountToken && host) host.replaceWith(buildPlayerIframe(v, false));
     });
   }
 
@@ -1352,9 +1314,6 @@
           '<label class="check"><input type="checkbox" name="blockYouTubeLinks"' + (state.settings.blockYouTubeLinks !== false ? ' checked' : '') + '> Block links to youtube.com inside the player <span class="muted small">(recommended; turn off if videos show as unavailable)</span></label>' +
           '<label class="check"><input type="checkbox" name="autoplayNext"' + (state.settings.autoplayNext ? ' checked' : '') + '> Play the next video automatically when one ends <span class="muted small">(off: each video stops at the end, so nothing keeps playing if your child falls asleep)</span></label>' +
           '<label class="check"><input type="checkbox" name="useYouTubeSignIn"' + (state.settings.useYouTubeSignIn ? ' checked' : '') + '> Use my YouTube sign-in <span class="muted small">(with YouTube Premium, videos play without ads; sign in to youtube.com in this browser first)</span></label>' +
-          (state.settings.useYouTubeSignIn && session.signInOff
-            ? '<div class="status status-warn">YouTube wouldn’t load the player with your sign-in just now, so videos play without it (with ads) until KidTube is reopened. If this keeps happening on this device, untick the box so videos start straight away.</div>'
-            : '') +
           '<button class="btn" type="submit">Save settings</button>' +
         '</form>' +
         statusHtml('settings') +
@@ -1634,7 +1593,7 @@
       var lists = [].concat((state.explore.suggestions || []).map(function (c) { return c.samples || []; }), ((session.search && session.search.results) || []).map(function (r) { return r.samples || [r]; }));
       lists.forEach(function (l) { l.forEach(function (x) { if (x.youtubeId === id) title = x.title; }); });
     }
-    var src = embedBase(false) + id + '?rel=0&playsinline=1&autoplay=1'; // a parent's preview doesn't need the sign-in
+    var src = embedSrc(id, ['rel=0', 'playsinline=1', 'autoplay=1']);
     return '<div class="preview-overlay" data-action="close-preview">' +
       '<div class="preview-box" data-stop="1">' +
         '<div class="preview-head"><span class="preview-title">' + esc(title) + '</span><button class="icon-btn" data-action="close-preview" aria-label="Close">✕</button></div>' +
@@ -2096,8 +2055,6 @@
         state.settings.childName = form.childName.value.trim() || 'My Videos';
         state.settings.apiKey = form.apiKey.value.trim();
         state.settings.blockYouTubeLinks = form.blockYouTubeLinks.checked;
-        // Ticking the box again is a fresh try after a failed one.
-        if (form.useYouTubeSignIn.checked && !state.settings.useYouTubeSignIn) session.signInOff = false;
         state.settings.useYouTubeSignIn = form.useYouTubeSignIn.checked;
         state.settings.autoplayNext = form.autoplayNext.checked;
         persist();

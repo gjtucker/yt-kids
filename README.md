@@ -136,17 +136,11 @@ then loads from youtube.com instead of the privacy-enhanced domain, so your
 Premium status applies and videos play without ads. Leave it off to keep the
 cookie-free embed.
 
-If the player doesn't come up with your sign-in, the app plays that video
-with the cookie-free player instead: when the player's page has loaded but
-the player hasn't answered within 4 seconds (what the browser's
-"m.youtube.com refused to connect" page looks like), or when nothing has
-loaded after 10 seconds. The rest of that visit uses the cookie-free
-player, and Parent mode → Settings says so; the next time KidTube is opened
-it tries the sign-in again. Nothing about a failure is stored. On some
-devices (seen on a Meta Portal) YouTube sends a signed-in player to
-m.youtube.com and back to `…?app=desktop`, so signed-in players ask for
-`app=desktop` up front. If a device keeps failing, untick the box there so
-videos start straight away. With
+If a device shows "m.youtube.com refused to connect" instead of the video,
+YouTube is sending the signed-in player to its mobile site, which won't load
+inside other sites. Seen on a Meta Portal, where opening the player in its own
+tab ended on `…?app=desktop`, so the signed-in player asks for `app=desktop`
+up front. If it still happens on a device, untick the box there. With
 Premium Lite, music videos and Shorts can still show ads.
 
 ### Supported links

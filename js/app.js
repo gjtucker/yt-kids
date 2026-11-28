@@ -968,6 +968,11 @@
      player (title, logo, "Watch on YouTube") cannot open youtube.com. */
   function buildPlayerIframe(v, withApi, signedIn) {
     var params = ['rel=0', 'playsinline=1', 'iv_load_policy=3'];
+    // On Android (seen on a Meta Portal), YouTube sends a signed-in player
+    // to m.youtube.com and back with app=desktop; the m.youtube.com step
+    // refuses to load inside KidTube. Asking for the desktop player up
+    // front skips that detour.
+    if (signedIn) params.unshift('app=desktop');
     if (session.startAt > 0 && session.currentVideoId === v.youtubeId) params.push('start=' + Math.floor(session.startAt));
     session.startAt = 0;
     if (withApi) {
@@ -1809,7 +1814,7 @@
       var lists = [].concat((state.explore.suggestions || []).map(function (c) { return c.samples || []; }), ((session.search && session.search.results) || []).map(function (r) { return r.samples || [r]; }));
       lists.forEach(function (l) { l.forEach(function (x) { if (x.youtubeId === id) title = x.title; }); });
     }
-    var src = embedBase(signInActive()) + id + '?rel=0&playsinline=1&autoplay=1';
+    var src = embedBase(signInActive()) + id + '?' + (signInActive() ? 'app=desktop&' : '') + 'rel=0&playsinline=1&autoplay=1';
     return '<div class="preview-overlay" data-action="close-preview">' +
       '<div class="preview-box" data-stop="1">' +
         '<div class="preview-head"><span class="preview-title">' + esc(title) + '</span><button class="icon-btn" data-action="close-preview" aria-label="Close">✕</button></div>' +
